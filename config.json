@@ -40,7 +40,12 @@
 
     "links": {
         "project": [
-
+            {
+                "name": "Operational Dashboard",
+                "icon": "fa-solid fa-chart-simple",
+                "url": "pages/dashboard.php",
+                "show-header-and-footer": false
+            }
         ],
         "control-center": [
 
