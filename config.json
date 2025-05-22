@@ -1,0 +1,72 @@
+{
+    "name": "EHS People Integration",
+
+    "namespace": "Stanford\\EHSPeopleIntegration",
+
+    "description": "TODO",
+
+    "documentation": "README.md",
+
+    "framework-version": 16,
+
+    "authors": [
+        {
+            "name": "Ihab Zeedia",
+            "email": "ihab.zeedia@stanford.edu",
+            "institution": "Stanford University"
+        },
+        {
+            "name": "Jordan Schultz",
+            "email": "jmschult@stanford.edu",
+            "institution": "Stanford University"
+        }
+    ],
+
+    "permissions": [
+
+    ],
+
+    "enable-every-page-hooks-on-system-pages": false,
+
+    "enable-ajax-logging": false,
+
+    "auth-ajax-actions": [
+        "TestAction"
+    ],
+
+    "no-auth-ajax-actions": [
+        "TestAction"
+    ],
+
+    "links": {
+        "project": [
+
+        ],
+        "control-center": [
+
+        ]
+    },
+
+    "no-auth-pages": [
+
+    ],
+
+    "project-settings": [
+
+    ],
+
+    "system-settings": [
+
+    ],
+
+    "crons": [
+
+    ],
+
+    "compatibility": {
+        "php-version-min": "",
+        "php-version-max": "",
+        "redcap-version-min": "",
+        "redcap-version-max": ""
+    }
+}
