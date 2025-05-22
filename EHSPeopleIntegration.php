@@ -10,7 +10,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
     public function injectJSMO($data = null, $init_method = null) {
         echo $this->initializeJavascriptModuleObject();
         $cmds = [
-            "const module = " . $this-getJavascriptModuleObjectName();
+            "const module = " . $this-getJavascriptModuleObjectName()
         ];
         if (!empty($data)) $cmds[] = "module.data = " . json_encode($data);
         if (!empty($init_method)) $cmds[] = "module.afterRender(module." . $init_method . ")";
@@ -31,6 +31,20 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                 $result = [
                     "success"=>true,
                     "user_id"=>$user_id
+                ];
+                break;
+            case "getRecords":
+                $payload = json_decode($payload, true);
+                $param = [];
+                if(in_array('filterLogic', $payload)) {
+                    $param = array(
+                        'filterLogic' => $payload['filterLogic'],
+                    );
+                }
+                $data = \REDCap::getData($project_id, "json", $param);
+                $result = [
+                    "success"=>true,
+                    "data"=>$data[$event_id]
                 ];
                 break;
             default:
