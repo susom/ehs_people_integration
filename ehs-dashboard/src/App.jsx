@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import IncidentTable from './IncidentTable/IncidentTable.jsx';
 import { Center, Title } from '@mantine/core';
 
