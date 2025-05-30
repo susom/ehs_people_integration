@@ -4,13 +4,15 @@ import {
     ScrollArea,
     Box,
     Card,
+    Grid,
     Group,
     Pagination,
     Select,
-    TextInput
+    TextInput, Center
 } from '@mantine/core';
 import SearchBar from "../components/searchBar.jsx";
 import {IconSearch} from "@tabler/icons-react";
+import IncidentSummary from "../components/IncidentSummary.jsx";
 // Utility function to chunk array into pages
 const chunk = (array, size) => {
     if (!array.length) return [];
@@ -104,6 +106,7 @@ export default function IncidentTable() {
 
     return (
         <Box p={20}>
+           <IncidentSummary/>
             <Card>
                 <Group
                     justify="space-between"
