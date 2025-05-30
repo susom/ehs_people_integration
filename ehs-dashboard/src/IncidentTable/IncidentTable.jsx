@@ -8,11 +8,15 @@ import {
     Group,
     Pagination,
     Select,
-    TextInput, Center
+    Modal,
+    TextInput,
+    Center
 } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
 import SearchBar from "../components/searchBar.jsx";
 import {IconSearch, IconFilter2Plus} from "@tabler/icons-react";
 import IncidentSummary from "../components/IncidentSummary.jsx";
+import FilterModal from "../components/FilterModal.jsx";
 // Utility function to chunk array into pages
 const chunk = (array, size) => {
     if (!array.length) return [];
@@ -38,6 +42,7 @@ export default function IncidentTable() {
     const [sortDirection, setSortDirection] = useState('asc');
     const [displayCount, setDisplayCount] = useState(25);
     const [searchValue, setSearchValue] = useState('');
+    const [opened, { open, close }] = useDisclosure(false);
 
     const data = [
         { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
@@ -126,8 +131,10 @@ export default function IncidentTable() {
                             variant="default"
                             color="rgba(0, 0, 0, 1)"
                             aria-label="Settings"
+                            onClick={open}
+
                         >
-                            <IconFilter2Plus  stroke={1.5} size={20} />
+                            <IconFilter2Plus stroke={1.5} size={20} />
                         </ActionIcon>
 
                         <SearchBar
@@ -175,6 +182,7 @@ export default function IncidentTable() {
                     </Group>
                 </ScrollArea>
             </Card>
+            <FilterModal opened={opened} onClose={close}/>
         </Box>
     );
 }
