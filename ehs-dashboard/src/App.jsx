@@ -1,15 +1,26 @@
-import { useState } from 'react'
 import IncidentTable from './IncidentTable/IncidentTable.jsx';
-import { Center, Title } from '@mantine/core';
-
+import { Title, AppShell, Group } from '@mantine/core';
+import "./App.css";
+import {IconChartBarPopular} from '@tabler/icons-react';
 function App() {
 
   return (
     <>
-        <Center>
-            <Title order={2}>EHS Dashboard</Title>
-        </Center>
-        <IncidentTable/>
+        <AppShell
+            header={{ height: 60 }}
+        >
+            <AppShell.Header>
+                <Group h="100%" px="md">
+                    <Title order={2}>EHS Dashboard</Title>
+                    <IconChartBarPopular size={24}/>
+                </Group>
+            </AppShell.Header>
+            <AppShell.Main>
+                <IncidentTable/>
+            </AppShell.Main>
+
+        </AppShell>
+
     </>
   )
 }
