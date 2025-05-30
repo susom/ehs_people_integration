@@ -4,14 +4,14 @@ import {
     ScrollArea,
     Box,
     Card,
-    Grid,
+    ActionIcon,
     Group,
     Pagination,
     Select,
     TextInput, Center
 } from '@mantine/core';
 import SearchBar from "../components/searchBar.jsx";
-import {IconSearch} from "@tabler/icons-react";
+import {IconSearch, IconFilter2Plus} from "@tabler/icons-react";
 import IncidentSummary from "../components/IncidentSummary.jsx";
 // Utility function to chunk array into pages
 const chunk = (array, size) => {
@@ -107,7 +107,7 @@ export default function IncidentTable() {
     return (
         <Box p={20}>
            <IncidentSummary/>
-            <Card>
+            <Card shadow="sm" withBorder>
                 <Group
                     justify="space-between"
                 >
@@ -118,14 +118,27 @@ export default function IncidentTable() {
                         data={['Show 25 rows', 'Show 50 rows', 'Show 75 rows']}
                         onChange={displayCountChange}
                     />
-                    <SearchBar
-                        value={searchValue}
-                        onDebouncedChange={(val) => {
-                            setSearchValue(val);
-                            setActivePage(1);
-                        }}
-                        delay={300} // optional: adjust debounce time
-                    />
+                    <Group gap="xs" align="center">
+                        <ActionIcon
+                            h={36} // Match TextInput height (default size)
+                            w={36}
+                            mb="xs"
+                            variant="default"
+                            color="rgba(0, 0, 0, 1)"
+                            aria-label="Settings"
+                        >
+                            <IconFilter2Plus  stroke={1.5} size={20} />
+                        </ActionIcon>
+
+                        <SearchBar
+                            value={searchValue}
+                            onDebouncedChange={(val) => {
+                                setSearchValue(val);
+                                setActivePage(1);
+                            }}
+                            delay={300} // optional: adjust debounce time
+                        />
+                    </Group>
                 </Group>
                 <ScrollArea>
                     <Table striped highlightOnHover withTableBorder>

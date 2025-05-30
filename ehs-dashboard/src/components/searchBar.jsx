@@ -20,6 +20,7 @@ export default function SearchBar({ value, onDebouncedChange, delay = 300 }) {
 
     return (
         <TextInput
+            mb="xs"
             w="250px"
             leftSection={<IconSearch size={16} />}
             placeholder="Search ..."
