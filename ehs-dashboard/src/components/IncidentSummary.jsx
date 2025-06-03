@@ -1,13 +1,13 @@
 import React from 'react';
 import { Grid, Stack, Text, Center, Title } from '@mantine/core';
 
-export default function IncidentSummary() {
+export default function IncidentSummary({ total }) {
     return (
         <Grid justify="center" align="flex-start" mb="lg">
             <Grid.Col span={4}>
                 <Center>
                     <Stack gap="xs" align="center">
-                        <Title order={1}>10</Title>
+                        <Title order={1}>{total}</Title>
                         <Text> Total Incidents </Text>
                     </Stack>
                 </Center>

@@ -8,13 +8,14 @@ import {
     Group,
     Pagination,
     Select,
+    Indicator,
     Modal,
     TextInput,
     Center
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import SearchBar from "../components/searchBar.jsx";
-import {IconSearch, IconFilter2Plus} from "@tabler/icons-react";
+import {IconFilter2Plus} from "@tabler/icons-react";
 import IncidentSummary from "../components/IncidentSummary.jsx";
 import FilterModal from "../components/FilterModal.jsx";
 // Utility function to chunk array into pages
@@ -43,8 +44,9 @@ export default function IncidentTable() {
     const [displayCount, setDisplayCount] = useState(25);
     const [searchValue, setSearchValue] = useState('');
     const [opened, { open, close }] = useDisclosure(false);
+    const [filterApplied, setFilterApplied] = useState(false);
 
-    const data = [
+    const [data, setData] = useState([
         { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
         { number: 'INC-002', type: 'Fire Alarm', person: 'Alice Johnson', date: '2025-01-12', lead: 'Robert King', group: 'Fire Safety', status: 'Investigating' },
         { number: 'INC-003', type: 'Equipment Failure', person: 'David Brown', date: '2025-01-15', lead: 'Emily White', group: 'Mechanical Safety', status: 'Open' },
@@ -55,8 +57,11 @@ export default function IncidentTable() {
         { number: 'INC-008', type: 'Slip and Fall', person: 'Emma Stone', date: '2025-01-27', lead: 'Clark Kent', group: 'Workplace Safety', status: 'Resolved' },
         { number: 'INC-009', type: 'Electrical Issue', person: 'Henry Cavill', date: '2025-01-28', lead: 'Diana Prince', group: 'Facilities', status: 'Open' },
         { number: 'INC-010', type: 'Biohazard Exposure', person: 'Bruce Banner', date: '2025-01-30', lead: 'Tony Stark', group: 'Lab Safety', status: 'Investigating' },
-    ];
-
+    ]);
+    const [filteredData, setFilteredData] = useState(data)
+    const handleApplyFilters = (filtered) => {
+        setFilteredData(filtered);
+    };
     // Sort data before chunking
     const getSortedData = (sourceData) => {
         if (sortColumn === null) return [...sourceData];
@@ -80,7 +85,8 @@ export default function IncidentTable() {
                 : bVal.toString().localeCompare(aVal.toString());
         });
     };
-    const filteredData = data.filter((item) =>
+
+    const searchedData = filteredData.filter((item) =>
         Object.values(item).some((value) =>
             String(value || '') // ensure it's a string
                 .toLowerCase()
@@ -88,7 +94,7 @@ export default function IncidentTable() {
         )
     );
 
-    const sortedData = getSortedData(filteredData);
+    const sortedData = getSortedData(searchedData);
     const pagesActive = chunk(sortedData, displayCount);
     const currentPageData = pagesActive[activePage - 1] ?? [];
 
@@ -111,7 +117,7 @@ export default function IncidentTable() {
 
     return (
         <Box p={20}>
-           <IncidentSummary/>
+           <IncidentSummary total={filteredData.length}/>
             <Card shadow="sm" withBorder>
                 <Group
                     justify="space-between"
@@ -124,18 +130,20 @@ export default function IncidentTable() {
                         onChange={displayCountChange}
                     />
                     <Group gap="xs" align="center">
-                        <ActionIcon
-                            h={36} // Match TextInput height (default size)
-                            w={36}
-                            mb="xs"
-                            variant="default"
-                            color="rgba(0, 0, 0, 1)"
-                            aria-label="Settings"
-                            onClick={open}
+                        <Indicator position="top-start" disabled={!filterApplied} color="green" size={12} processing>
+                            <ActionIcon
+                                h={36} // Match TextInput height (default size)
+                                w={36}
+                                mb="xs"
+                                variant="default"
+                                color="rgba(0, 0, 0, 1)"
+                                aria-label="Settings"
+                                onClick={open}
 
-                        >
-                            <IconFilter2Plus stroke={1.5} size={20} />
-                        </ActionIcon>
+                            >
+                                <IconFilter2Plus stroke={1.5} size={20} />
+                            </ActionIcon>
+                        </Indicator>
 
                         <SearchBar
                             value={searchValue}
@@ -182,7 +190,7 @@ export default function IncidentTable() {
                     </Group>
                 </ScrollArea>
             </Card>
-            <FilterModal opened={opened} onClose={close}/>
+            <FilterModal opened={opened} onClose={close} data={data} onApplyFilters={(e) => handleApplyFilters(e)} setFilterApplied={setFilterApplied} />
         </Box>
     );
 }
