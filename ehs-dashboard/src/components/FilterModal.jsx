@@ -12,13 +12,13 @@ import {
 } from '@mantine/core';
 import { IconX, IconTrash, IconPlus} from '@tabler/icons-react';
 
-export default function FilterModal({ opened, onClose }) {
+export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied}) {
     const [filters, setFilters] = useState([]);
 
     const addFilter = () => {
         setFilters((prev) => [
             ...prev,
-            { logic: 'AND', column: null, operator: null, value: '' },
+            { logic: '', column: null, operator: null, value: '' },
         ]);
     };
 
@@ -29,11 +29,56 @@ export default function FilterModal({ opened, onClose }) {
     };
 
     const removeFilter = (index) => {
-        setFilters((prev) => prev.filter((_, i) => i !== index));
+        setFilters((prev) => {
+            const newFilters = prev.filter((_, i) => i !== index);
+
+            // If all filters are removed, reset the state
+            if (newFilters.length === 0) {
+                setFilterApplied(false);
+                onApplyFilters(data); // Reset to original data
+            }
+
+            return newFilters;
+        });
     };
 
     const clearAllFilters = () => {
         setFilters([]);
+
+        // Reset tableData to original full dataset
+        onApplyFilters(data);
+        setFilterApplied(false);
+    };
+
+    const applyFilters = (tableData, filters) => {
+        if (filters.length === 0) return tableData;
+
+        let rows = tableData.filter((row) => {
+            // Start by evaluating the first filter
+            let result = evaluate(
+                row[columnKeyMap[filters[0].column]],
+                filters[0].operator,
+                filters[0].value
+            );
+
+            // Apply the rest using AND/OR logic
+            for (let i = 1; i < filters.length; i++) {
+                const { logic, column, operator, value } = filters[i];
+                const condition = evaluate(row[columnKeyMap[column]], operator, value);
+
+                if (logic === 'AND') {
+                    result = result && condition;
+                } else if (logic === 'OR') {
+                    result = result || condition;
+                }
+            }
+
+            return result;
+        });
+
+        // Update tableData in parent using callback
+        onApplyFilters(rows);
+        setFilterApplied(true);
     };
 
     const columnOptions = [
@@ -54,6 +99,34 @@ export default function FilterModal({ opened, onClose }) {
     ];
 
     const logicOptions = ['AND', 'OR'];
+
+    const columnKeyMap = {
+        'Incident Number': 'number',
+        'Incident Type': 'type',
+        'Name of Person Involved': 'person',
+        'Date of Incident': 'date',
+        'Name of Incident Lead': 'lead',
+        'Lead Safety Group': 'group',
+        'Status of Incident': 'status',
+    };
+
+    const evaluate = (itemValue, operator, filterValue) => {
+        const value = itemValue?.toString().toLowerCase() ?? '';
+        const filter = filterValue?.toString().toLowerCase() ?? '';
+
+        switch (operator) {
+            case 'contains':
+                return value.includes(filter);
+            case 'does not contain':
+                return !value.includes(filter);
+            case 'equals':
+                return value === filter;
+            case 'does not equal':
+                return value !== filter;
+            default:
+                return true;
+        }
+    };
 
     return (
         <Modal
@@ -114,12 +187,25 @@ export default function FilterModal({ opened, onClose }) {
             </Stack>
             <Divider my="md" />
             <Group justify="space-between" mt="md">
-                <Button leftSection={<IconPlus size={16}/>} variant="outline" onClick={addFilter}>
-                    Add Filter
-                </Button>
+                <Group>
+                    <Button leftSection={<IconPlus size={16} />} variant="outline" onClick={addFilter}>
+                        Add Filter
+                    </Button>
+                    {filters.length > 0 && (
+                        <Button
+                            leftSection={<IconTrash size={16} />}
+                            variant="outline"
+                            color="red"
+                            onClick={clearAllFilters}
+                        >
+                            Clear All
+                        </Button>
+                    )}
+                </Group>
+
                 {filters.length > 0 && (
-                    <Button leftSection={<IconTrash size={16}/>} variant="outline" color="red" onClick={clearAllFilters}>
-                        Clear All
+                    <Button variant="outline" color="green" onClick={() => applyFilters(data, filters)}>
+                        Apply
                     </Button>
                 )}
             </Group>
