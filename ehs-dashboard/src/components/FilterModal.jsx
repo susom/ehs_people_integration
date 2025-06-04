@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
     Modal,
     Button,
-    Box,
     Group,
     Select,
     TextInput,
@@ -10,15 +9,15 @@ import {
     Divider,
     Stack,
 } from '@mantine/core';
-import { IconX, IconTrash, IconPlus} from '@tabler/icons-react';
+import { IconX, IconTrash, IconPlus } from '@tabler/icons-react';
 
-export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied}) {
+export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied }) {
     const [filters, setFilters] = useState([]);
 
     const addFilter = () => {
         setFilters((prev) => [
             ...prev,
-            { logic: '', column: null, operator: null, value: '' },
+            { logic: '', column: null, operator: null, value: '', valueStart: '', valueEnd: '' },
         ]);
     };
 
@@ -32,10 +31,9 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         setFilters((prev) => {
             const newFilters = prev.filter((_, i) => i !== index);
 
-            // If all filters are removed, reset the state
             if (newFilters.length === 0) {
                 setFilterApplied(false);
-                onApplyFilters(data); // Reset to original data
+                onApplyFilters(data);
             }
 
             return newFilters;
@@ -44,8 +42,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
     const clearAllFilters = () => {
         setFilters([]);
-
-        // Reset tableData to original full dataset
         onApplyFilters(data);
         setFilterApplied(false);
     };
@@ -54,17 +50,23 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         if (filters.length === 0) return tableData;
 
         let rows = tableData.filter((row) => {
-            // Start by evaluating the first filter
             let result = evaluate(
                 row[columnKeyMap[filters[0].column]],
                 filters[0].operator,
-                filters[0].value
+                filters[0].value,
+                filters[0].valueStart,
+                filters[0].valueEnd
             );
 
-            // Apply the rest using AND/OR logic
             for (let i = 1; i < filters.length; i++) {
-                const { logic, column, operator, value } = filters[i];
-                const condition = evaluate(row[columnKeyMap[column]], operator, value);
+                const { logic, column, operator, value, valueStart, valueEnd } = filters[i];
+                const condition = evaluate(
+                    row[columnKeyMap[column]],
+                    operator,
+                    value,
+                    valueStart,
+                    valueEnd
+                );
 
                 if (logic === 'AND') {
                     result = result && condition;
@@ -76,9 +78,31 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             return result;
         });
 
-        // Update tableData in parent using callback
         onApplyFilters(rows);
         setFilterApplied(true);
+    };
+
+    const evaluate = (itemValue, operator, value, valueStart, valueEnd) => {
+        const val = itemValue?.toString().toLowerCase() ?? '';
+        const filter = value?.toString().toLowerCase() ?? '';
+
+        switch (operator) {
+            case 'contains':
+                return val.includes(filter);
+            case 'does not contain':
+                return !val.includes(filter);
+            case 'equals':
+                return val === filter;
+            case 'does not equal':
+                return val !== filter;
+            case 'between':
+                const itemDate = new Date(itemValue);
+                const start = new Date(valueStart);
+                const end = new Date(valueEnd);
+                return itemDate >= start && itemDate <= end;
+            default:
+                return true;
+        }
     };
 
     const columnOptions = [
@@ -91,12 +115,11 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Status of Incident',
     ];
 
-    const operatorOptions = [
-        'contains',
-        'does not contain',
-        'equals',
-        'does not equal',
-    ];
+    const operatorOptions = (column) => {
+        return column === 'Date of Incident'
+            ? ['equals', 'between']
+            : ['contains', 'does not contain', 'equals', 'does not equal'];
+    };
 
     const logicOptions = ['AND', 'OR'];
 
@@ -108,24 +131,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Name of Incident Lead': 'lead',
         'Lead Safety Group': 'group',
         'Status of Incident': 'status',
-    };
-
-    const evaluate = (itemValue, operator, filterValue) => {
-        const value = itemValue?.toString().toLowerCase() ?? '';
-        const filter = filterValue?.toString().toLowerCase() ?? '';
-
-        switch (operator) {
-            case 'contains':
-                return value.includes(filter);
-            case 'does not contain':
-                return !value.includes(filter);
-            case 'equals':
-                return value === filter;
-            case 'does not equal':
-                return value !== filter;
-            default:
-                return true;
-        }
     };
 
     return (
@@ -164,24 +169,56 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                             placeholder="Select column"
                             data={columnOptions}
                             value={filter.column}
-                            onChange={(value) => updateFilter(index, 'column', value)}
+                            onChange={(value) => {
+                                updateFilter(index, 'column', value);
+                                updateFilter(index, 'operator', null);
+                            }}
                             flex={1}
                         />
+
                         <Select
                             label="Operator"
                             placeholder="Select operator"
-                            data={operatorOptions}
+                            data={operatorOptions(filter.column)}
                             value={filter.operator}
                             onChange={(value) => updateFilter(index, 'operator', value)}
                             flex={1}
                         />
-                        <TextInput
-                            label="Value"
-                            placeholder="Filter value"
-                            value={filter.value}
-                            onChange={(e) => updateFilter(index, 'value', e.target.value)}
-                            flex={1}
-                        />
+
+                        {/* Value Input Section */}
+                        {filter.column === 'Date of Incident' ? (
+                            filter.operator === 'between' ? (
+                                <>
+                                    <TextInput
+                                        type="date"
+                                        label="Start"
+                                        value={filter.valueStart}
+                                        onChange={(e) => updateFilter(index, 'valueStart', e.target.value)}
+                                    />
+                                    <TextInput
+                                        type="date"
+                                        label="End"
+                                        value={filter.valueEnd}
+                                        onChange={(e) => updateFilter(index, 'valueEnd', e.target.value)}
+                                    />
+                                </>
+                            ) : (
+                                <TextInput
+                                    type="date"
+                                    label="Date"
+                                    value={filter.value}
+                                    onChange={(e) => updateFilter(index, 'value', e.target.value)}
+                                />
+                            )
+                        ) : (
+                            <TextInput
+                                label="Value"
+                                placeholder="Filter value"
+                                value={filter.value}
+                                onChange={(e) => updateFilter(index, 'value', e.target.value)}
+                                flex={1}
+                            />
+                        )}
                     </Group>
                 ))}
             </Stack>
