@@ -1,6 +1,13 @@
 <?php
 namespace Stanford\EHSPeopleIntegration;
 
+require 'vendor/autoload.php';
+
+use PhpOffice\PhpSpreadsheet\IOFactory;
+
+
+
+
 class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 
     const BUILD_FILE_DIR = 'ehs-dashboard/dist/assets';
@@ -82,11 +89,71 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                 break;
             default:
                 // Action not defined
-                throw new Exception ("Action $action is not defined");
+                throw new \Exception ("Action $action is not defined");
         }
 
         // Return is left as php object, is converted to json automatically
         return $result;
     }
 
+    public function testExcelFile()
+    {
+
+        // Load existing Excel file (your OSHA Form 300 template)
+        $spreadsheet = IOFactory::load(__DIR__ . '/osha_template.xlsx');
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $caseData = [
+            ['1', 'John Doe', 'Cut on hand', '01/15/2024', 'Manufacturing', 'Days Away'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
+            // Add more rows here
+        ];
+
+// Start inserting at row 25
+        $startRow = 25;
+        $caseNum = 1;
+        foreach ($caseData as $index => $row) {
+            $rowIndex = $startRow + $index;
+
+            $sheet->insertNewRowBefore($rowIndex, 1); // Insert 1 new row before the current index
+
+            // Optional: copy style from previous row (24 in this example)
+            $sheet->duplicateStyle($sheet->getStyle('A24:F24'), "A{$rowIndex}:F{$rowIndex}");
+
+
+            $sheet->setCellValue("A{$rowIndex}", $caseNum); // Case No.
+            $sheet->setCellValue("B{$rowIndex}", $row[1]); // Employee Name
+            $sheet->setCellValue("C{$rowIndex}", $row[2]); // Description
+            $sheet->setCellValue("D{$rowIndex}", $row[3]); // Date
+            $sheet->setCellValue("E{$rowIndex}", $row[4]); // Department
+            $sheet->setCellValue("F{$rowIndex}", $row[5]); // Outcome
+            $caseNum++;
+        }
+
+// Save the updated file
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        $writer->save(__DIR__ ."/OSHA_Form_300_Filled.xlsx");
+
+        echo "OSHA Form 300 updated successfully.";
+    }
 }
