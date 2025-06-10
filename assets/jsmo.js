@@ -4,33 +4,27 @@
     // Define the jsmo in IIFE so we can reference object in our new function methods
     const module = ExternalModules.Stanford.EHSPeopleIntegration;
 
-    // Extend the official JSMO with new methods
     Object.assign(module, {
-
-        ExampleFunction: function () {
-            console.log("Example Function showing module's data:", module.data);
-        },
-
-        // Ajax function calling 'TestAction'
-        InitFunction: function () {
-            console.log("Example Init Function");
-
-            // Note use of jsmo to call methods
-            module.ajax('TestAction', module.data).then(function (response) {
-                // Process response
-                console.log("Ajax Result: ", response);
-            }).catch(function (err) {
-                // Handle error
-                console.log(err);
-            });
-        },
-        getRecords: function () {
-            module.ajax('getRecords').then(function (response) {
-                console.log("RESPONSE", response);
-                // TODO
-            }).catch(function (err) {
-                console.log("Error", err);
-            })
+        getRecords: function (callback, errorCallback) {
+            module.ajax('getRecords')
+                .then(function (response) {
+                    if (response?.success) {
+                        if (typeof callback === 'function') {
+                            callback(response.data);
+                        }
+                    } else {
+                        if (typeof errorCallback === 'function') {
+                            errorCallback(new Error('Request failed'));
+                        }
+                    }
+                })
+                .catch(function (err) {
+                    if (typeof errorCallback === 'function') {
+                        errorCallback(err);
+                    } else {
+                        console.error("Error", err);
+                    }
+                });
         },
     });
 }
