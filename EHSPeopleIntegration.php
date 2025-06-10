@@ -69,15 +69,17 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             case "getRecords":
                 $payload = json_decode($payload, true);
                 $param = [];
-                if(in_array('filterLogic', $payload)) {
-                    $param = array(
-                        'filterLogic' => $payload['filterLogic'],
-                    );
-                }
-                $data = \REDCap::getData($project_id, "json", $param);
+                $detailsParams = [
+                    "return_format" => "json",
+                    "fields" => ["record_id", "non_type", "emp_inc_type"],
+                    "project_id" => $project_id,
+                ];
+
+                $res = json_decode(\REDCap::getData($detailsParams),true);
+                $res = $this->parseNonType($res);
                 $result = [
                     "success"=>true,
-                    "data"=>$data[$event_id]
+                    "data"=>$res
                 ];
                 break;
             default:
@@ -89,4 +91,44 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         return $result;
     }
 
+    function parseNonType($records) {
+        $nonTypeValues = [];
+        $project = new \Project(PROJECT_ID);
+        $parsed = $this->parseEnumField($project->metadata["non_type"]['element_enum']);
+
+        foreach($records as $k => $record) {
+            foreach ($record as $key => $value) {
+                if (preg_match('/^non_type___(\d+)$/', $key, $matches) && $value === "1") {
+                    $num = (int) $matches[1];
+                    $nonTypeValues[] = $parsed[$num];
+                }
+            }
+
+//            if(isset($parsed)[]) {}
+//            if (isset($parsed[$fieldData[$variableName]])) {
+//                $value = $parsed[$fieldData[$variableName]];
+//            }
+            // Add the new 'non_type' key to the original array
+            $records[$k]['non_type_concat'] = implode(', ', $nonTypeValues);
+        }
+
+        return $records;
+    }
+
+    public function parseEnumField($str): array
+    {
+        //REDCap uses explicit \n embedded into strings
+        $lines = explode("\\n", $str);
+
+        $parsedArray = [];
+        foreach ($lines as $line) {
+            $parts = array_map('trim', explode(',', $line, 2)); // Split only on first comma, trim spaces
+            if (count($parts) === 2) {
+                $parsedArray[(int)$parts[0]] = $parts[1]; // Convert key to integer
+            }
+        }
+
+        // Output the parsed array
+        return $parsedArray;
+    }
 }

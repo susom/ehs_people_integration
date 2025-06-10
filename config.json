@@ -31,11 +31,7 @@
     "enable-ajax-logging": false,
 
     "auth-ajax-actions": [
-        "TestAction"
-    ],
-
-    "no-auth-ajax-actions": [
-        "TestAction"
+        "getRecords"
     ],
 
     "links": {
