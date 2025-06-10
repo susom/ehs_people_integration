@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
     Table,
     ScrollArea,
@@ -45,20 +45,40 @@ export default function IncidentTable() {
     const [searchValue, setSearchValue] = useState('');
     const [opened, { open, close }] = useDisclosure(false);
     const [filterApplied, setFilterApplied] = useState(false);
+    const [data, setData] = useState([])
+    // const [data, setData] = useState([
+    //     { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
+    //     { number: 'INC-002', type: 'Fire Alarm', person: 'Alice Johnson', date: '2025-01-12', lead: 'Robert King', group: 'Fire Safety', status: 'Investigating' },
+    //     { number: 'INC-003', type: 'Equipment Failure', person: 'David Brown', date: '2025-01-15', lead: 'Emily White', group: 'Mechanical Safety', status: 'Open' },
+    //     { number: 'INC-004', type: 'Power Outage', person: 'Laura Wilson', date: '2025-01-18', lead: 'Michael Green', group: 'Facilities', status: 'Resolved' },
+    //     { number: 'INC-005', type: 'Chemical Exposure', person: 'Chris Martin', date: '2025-01-20', lead: 'Nancy Drew', group: 'Lab Safety', status: 'Investigating' },
+    //     { number: 'INC-006', type: 'Injury', person: 'Sophia Lee', date: '2025-01-22', lead: 'James Bond', group: 'Medical Response', status: 'Resolved' },
+    //     { number: 'INC-007', type: 'Gas Leak', person: 'Tom Hardy', date: '2025-01-25', lead: 'Bruce Wayne', group: 'Environmental Safety', status: 'Open' },
+    //     { number: 'INC-008', type: 'Slip and Fall', person: 'Emma Stone', date: '2025-01-27', lead: 'Clark Kent', group: 'Workplace Safety', status: 'Resolved' },
+    //     { number: 'INC-009', type: 'Electrical Issue', person: 'Henry Cavill', date: '2025-01-28', lead: 'Diana Prince', group: 'Facilities', status: 'Open' },
+    //     { number: 'INC-010', type: 'Biohazard Exposure', person: 'Bruce Banner', date: '2025-01-30', lead: 'Tony Stark', group: 'Lab Safety', status: 'Investigating' },
+    // ]);
+    const [filteredData, setFilteredData] = useState([])
 
-    const [data, setData] = useState([
-        { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
-        { number: 'INC-002', type: 'Fire Alarm', person: 'Alice Johnson', date: '2025-01-12', lead: 'Robert King', group: 'Fire Safety', status: 'Investigating' },
-        { number: 'INC-003', type: 'Equipment Failure', person: 'David Brown', date: '2025-01-15', lead: 'Emily White', group: 'Mechanical Safety', status: 'Open' },
-        { number: 'INC-004', type: 'Power Outage', person: 'Laura Wilson', date: '2025-01-18', lead: 'Michael Green', group: 'Facilities', status: 'Resolved' },
-        { number: 'INC-005', type: 'Chemical Exposure', person: 'Chris Martin', date: '2025-01-20', lead: 'Nancy Drew', group: 'Lab Safety', status: 'Investigating' },
-        { number: 'INC-006', type: 'Injury', person: 'Sophia Lee', date: '2025-01-22', lead: 'James Bond', group: 'Medical Response', status: 'Resolved' },
-        { number: 'INC-007', type: 'Gas Leak', person: 'Tom Hardy', date: '2025-01-25', lead: 'Bruce Wayne', group: 'Environmental Safety', status: 'Open' },
-        { number: 'INC-008', type: 'Slip and Fall', person: 'Emma Stone', date: '2025-01-27', lead: 'Clark Kent', group: 'Workplace Safety', status: 'Resolved' },
-        { number: 'INC-009', type: 'Electrical Issue', person: 'Henry Cavill', date: '2025-01-28', lead: 'Diana Prince', group: 'Facilities', status: 'Open' },
-        { number: 'INC-010', type: 'Biohazard Exposure', person: 'Bruce Banner', date: '2025-01-30', lead: 'Tony Stark', group: 'Lab Safety', status: 'Investigating' },
-    ]);
-    const [filteredData, setFilteredData] = useState(data)
+    useEffect(() => {
+        let jsmoModule;
+
+        if (import.meta?.env?.MODE !== 'development')
+            jsmoModule = ExternalModules.Stanford.EHSPeopleIntegration;
+        jsmoModule.getRecords(
+            (data) => {
+                console.log("Success:", data);
+                setData(data)
+                setFilteredData(data)
+                // setState(data) or do something useful
+            },
+            (err) => {
+                console.error("Failed to load records:", err);
+            }
+        );
+    }, []);
+
+
     const handleApplyFilters = (filtered) => {
         setFilteredData(filtered);
     };
@@ -168,9 +188,9 @@ export default function IncidentTable() {
                         </Table.Thead>
                         <Table.Tbody>
                             {currentPageData.map((incident) => (
-                                <Table.Tr key={incident.number}>
-                                    <Table.Td>{incident.number}</Table.Td>
-                                    <Table.Td>{incident.type}</Table.Td>
+                                <Table.Tr key={incident.record_id}>
+                                    <Table.Td>{incident.record_id}</Table.Td>
+                                    <Table.Td>{incident.non_type_concat}</Table.Td>
                                     <Table.Td>{incident.person}</Table.Td>
                                     <Table.Td>{incident.date}</Table.Td>
                                     <Table.Td>{incident.lead}</Table.Td>
