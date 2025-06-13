@@ -10,7 +10,7 @@
                 .then(function (response) {
                     if (response?.success) {
                         if (typeof callback === 'function') {
-                            callback(response.data);
+                            callback(response);
                         }
                     } else {
                         if (typeof errorCallback === 'function') {

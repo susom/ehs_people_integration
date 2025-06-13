@@ -9,9 +9,9 @@ import {
     Pagination,
     Select,
     Indicator,
-    Modal,
-    TextInput,
-    Center
+    Tooltip,
+    Text,
+    ColorSwatch
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import SearchBar from "../components/searchBar.jsx";
@@ -28,13 +28,12 @@ const chunk = (array, size) => {
 
 // Column to key map for sorting
 const columnKeyMap = {
-    0: 'number',
-    1: 'type',
-    2: 'person',
-    3: 'date',
-    4: 'lead',
-    5: 'group',
-    6: 'status',
+    0: 'record_id',
+    1: 'non_type_concat',
+    2: 'non_name',
+    3: 'non_date',
+    4: 'tri_lead_name',
+    5: 'tri_lead_safety_group',
 };
 
 export default function IncidentTable() {
@@ -45,7 +44,8 @@ export default function IncidentTable() {
     const [searchValue, setSearchValue] = useState('');
     const [opened, { open, close }] = useDisclosure(false);
     const [filterApplied, setFilterApplied] = useState(false);
-    const [data, setData] = useState([])
+    const [data, setData] = useState([]);
+    const [statusColumns, setStatusColumns] = useState([]);
     // const [data, setData] = useState([
     //     { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
     //     { number: 'INC-002', type: 'Fire Alarm', person: 'Alice Johnson', date: '2025-01-12', lead: 'Robert King', group: 'Fire Safety', status: 'Investigating' },
@@ -66,10 +66,11 @@ export default function IncidentTable() {
         if (import.meta?.env?.MODE !== 'development')
             jsmoModule = ExternalModules.Stanford.EHSPeopleIntegration;
         jsmoModule.getRecords(
-            (data) => {
-                console.log("Success:", data);
-                setData(data)
-                setFilteredData(data)
+            (res) => {
+                console.log("Success:", res);
+                setData(res?.data)
+                setFilteredData(res?.data)
+                setStatusColumns(res?.columns)
                 // setState(data) or do something useful
             },
             (err) => {
@@ -134,6 +135,18 @@ export default function IncidentTable() {
         setActivePage(1); // Reset to first page
     };
 
+    const recordRedirectUrl = (record) => {
+        if(record) {
+            const urlObj = new URL(window.location.href);
+
+            // Extract `pid` from query parameters
+            const pid = urlObj.searchParams.get('pid');
+            const cleanedPath = urlObj.pathname.replace(/\/ExternalModules\/.*/, '/');
+
+            const baseUrl = urlObj.origin + cleanedPath;
+            return `${baseUrl}DataEntry/record_home.php?pid=${pid}&id=${record}`
+        }
+    }
 
     return (
         <Box p={20}>
@@ -179,25 +192,74 @@ export default function IncidentTable() {
                     <Table striped highlightOnHover withTableBorder>
                         <Table.Thead>
                             <Table.Tr>
-                                {['Incident Number', 'Incident Type', 'Name of Person Involved', 'Date of Incident', 'Name of Incident Lead', 'Lead Safety Group', 'Status of Incident'].map((label, index) => (
-                                    <Table.Th key={index} onClick={() => handleSort(index)} style={{ cursor: 'pointer' }}>
-                                        {label} {sortColumn === index ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                                {[
+                                    'Incident Number',
+                                    'Incident Type',
+                                    'Name of Person Involved',
+                                    'Date of Incident',
+                                    'Name of Incident Lead',
+                                    'Lead Safety Group',
+                                    ...statusColumns,
+                                ].map((label, index) => (
+                                    <Table.Th
+                                        key={index}
+                                        onClick={() => handleSort(index)}
+                                        style={{ cursor: 'pointer' }}
+                                    >
+                                        {label}{' '}
+                                        {sortColumn === index ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                                     </Table.Th>
                                 ))}
                             </Table.Tr>
                         </Table.Thead>
                         <Table.Tbody>
-                            {currentPageData.map((incident) => (
-                                <Table.Tr key={incident.record_id}>
-                                    <Table.Td>{incident.record_id}</Table.Td>
-                                    <Table.Td>{incident.non_type_concat}</Table.Td>
-                                    <Table.Td>{incident.person}</Table.Td>
-                                    <Table.Td>{incident.date}</Table.Td>
-                                    <Table.Td>{incident.lead}</Table.Td>
-                                    <Table.Td>{incident.group}</Table.Td>
-                                    <Table.Td>{incident.status}</Table.Td>
-                                </Table.Tr>
-                            ))}
+                            {currentPageData.map((incident) => {
+                                const fullText = incident?.non_type_concat || '';
+                                const truncated = fullText.length > 75
+                                    ? fullText.slice(0, 75) + '...'
+                                    : fullText;
+
+                                return (
+                                    <Table.Tr key={incident?.record_id}>
+                                        <Table.Td><a href={recordRedirectUrl(incident?.record_id)}>{incident?.record_id}</a></Table.Td>
+
+                                        <Table.Td>
+                                            {fullText.length > 75 ? (
+                                                <Tooltip label={fullText} multiline w={300} withArrow>
+                                                    <Text size="sm" truncate>{truncated}</Text>
+                                                </Tooltip>
+                                            ) : (
+                                                <Text size="sm">{fullText}</Text>
+                                            )}
+                                        </Table.Td>
+
+                                        <Table.Td>{incident?.non_name}</Table.Td>
+                                        <Table.Td>{incident?.non_date}</Table.Td>
+                                        <Table.Td>{incident?.tri_lead_name}</Table.Td>
+                                        <Table.Td>{incident?.tri_lead_safety_group}</Table.Td>
+
+                                        {/* Dynamically render status columns */}
+                                        {statusColumns.map((colName, i) => {
+                                            const value = incident?.completed_statuses?.[colName] ?? '';
+                                            const statusMap = {
+                                                '2': { color: 'green', label: 'Complete' },
+                                                '1': { color: 'yellow', label: 'Unverified' },
+                                                '0': { color: 'red', label: 'Incomplete' },
+                                            };
+
+                                            const status = statusMap[value] ?? { color: 'gray', label: 'Unknown' };
+
+                                            return (
+                                                <Table.Td key={`status-${i}`}>
+                                                    <Tooltip label={status.label} withArrow>
+                                                        <ColorSwatch color={status.color} size={18} />
+                                                    </Tooltip>
+                                                </Table.Td>
+                                            );
+                                        })}
+                                    </Table.Tr>
+                                );
+                            })}
                         </Table.Tbody>
                     </Table>
                     <Group justify="flex-end">
