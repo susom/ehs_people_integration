@@ -252,7 +252,15 @@ export default function IncidentTable() {
                                             return (
                                                 <Table.Td key={`status-${i}`}>
                                                     <Tooltip label={status.label} withArrow>
-                                                        <ColorSwatch color={status.color} size={18} />
+                                                        <ColorSwatch
+                                                            style={{
+                                                                border: '1px solid gray',
+                                                                boxShadow: '0 0 10px white',
+                                                                borderRadius: '50%',
+                                                            }}
+                                                            color={status.color}
+                                                            size={16}
+                                                        />
                                                     </Tooltip>
                                                 </Table.Td>
                                             );
