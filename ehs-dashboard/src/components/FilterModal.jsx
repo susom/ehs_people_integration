@@ -84,8 +84,10 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
     };
 
     const evaluate = (itemValue, operator, value, valueStart, valueEnd) => {
+        console.log('evaluate', itemValue, operator, value, valueStart, valueEnd)
         const val = itemValue?.toString().toLowerCase() ?? '';
         const filter = value?.toString().toLowerCase() ?? '';
+        console.log('val , filter', val, filter)
         switch (operator) {
             case 'contains': {
                 const tokens = val.split(',').map((s) => s.trim());
@@ -95,8 +97,31 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                 const tokens = val.split(',').map((s) => s.trim());
                 return !tokens.some((token) => token === filter);
             }
-            case 'equals':
+            case 'equals': {
+                const mmddyyyyRegex = /^\d{2}-\d{2}-\d{4}$/;
+                const isDateFormat = mmddyyyyRegex.test(val)
+
+                if (isDateFormat) {
+                    const toISODate = (str) => {
+                        // Convert MM-DD-YYYY to ISO string
+                        const [mm, dd, yyyy] = str.split('-');
+                        return new Date(`${yyyy}-${mm}-${dd}`);
+                    };
+
+                    const dateVal = toISODate(val); //Date will be in MM-DD-YYYY from REDCap UI
+                    const dateFilter = new Date(filter); //Date will be in YYYY-MM-DD from backend
+                    if (!isNaN(dateVal) && !isNaN(dateFilter)) {
+                        return (
+                            dateVal.getFullYear() === dateFilter.getFullYear() &&
+                            dateVal.getMonth() === dateFilter.getMonth() &&
+                            dateVal.getDate() === dateFilter.getDate()
+                        );
+                    }
+                    return false;
+                }
+
                 return val === filter;
+            }
             case 'does not equal':
                 return val !== filter;
             case 'between':
@@ -135,7 +160,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Incident Number': 'record_id',
         'Incident Type': 'non_type_concat',
         'Name of Person Involved': 'person',
-        'Date of Incident': 'date',
+        'Date of Incident': 'non_date',
         'Name of Incident Lead': 'lead',
         'Lead Safety Group': 'group',
         'Status of Incident': 'status',
