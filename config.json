@@ -31,11 +31,7 @@
     "enable-ajax-logging": false,
 
     "auth-ajax-actions": [
-        "TestAction"
-    ],
-
-    "no-auth-ajax-actions": [
-        "TestAction"
+        "getRecords"
     ],
 
     "links": {
@@ -69,7 +65,13 @@
     ],
 
     "project-settings": [
-
+        {
+            "key": "status-column",
+            "name": "<h6><strong>Status Column</strong></h6><i>Completion status (complete/unverified/incomplete) of this form will be integrated into the dashboard as a column</i>",
+            "required": false,
+            "repeatable": true,
+            "type": "form-list"
+        }
     ],
 
     "system-settings": [

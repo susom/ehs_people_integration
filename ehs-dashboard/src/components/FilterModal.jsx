@@ -14,6 +14,8 @@ import { IconX, IconTrash, IconPlus } from '@tabler/icons-react';
 export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied }) {
     const [filters, setFilters] = useState([]);
 
+    // Generate list of unique safety groups for dropdown filter
+    const uniqueGroups = Array.from(new Set(data.map(row => row.group))).filter(Boolean);
     const addFilter = () => {
         setFilters((prev) => [
             ...prev,
@@ -48,7 +50,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
     const applyFilters = (tableData, filters) => {
         if (filters.length === 0) return tableData;
-
         let rows = tableData.filter((row) => {
             let result = evaluate(
                 row[columnKeyMap[filters[0].column]],
@@ -83,16 +84,44 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
     };
 
     const evaluate = (itemValue, operator, value, valueStart, valueEnd) => {
+        console.log('evaluate', itemValue, operator, value, valueStart, valueEnd)
         const val = itemValue?.toString().toLowerCase() ?? '';
         const filter = value?.toString().toLowerCase() ?? '';
-
+        console.log('val , filter', val, filter)
         switch (operator) {
-            case 'contains':
-                return val.includes(filter);
-            case 'does not contain':
-                return !val.includes(filter);
-            case 'equals':
+            case 'contains': {
+                const tokens = val.split(',').map((s) => s.trim());
+                return tokens.some((token) => token.includes(filter));
+            }
+            case 'does not contain': {
+                const tokens = val.split(',').map((s) => s.trim());
+                return !tokens.some((token) => token === filter);
+            }
+            case 'equals': {
+                const mmddyyyyRegex = /^\d{2}-\d{2}-\d{4}$/;
+                const isDateFormat = mmddyyyyRegex.test(val)
+
+                if (isDateFormat) {
+                    const toISODate = (str) => {
+                        // Convert MM-DD-YYYY to ISO string
+                        const [mm, dd, yyyy] = str.split('-');
+                        return new Date(`${yyyy}-${mm}-${dd}`);
+                    };
+
+                    const dateVal = toISODate(val); //Date will be in MM-DD-YYYY from REDCap UI
+                    const dateFilter = new Date(filter); //Date will be in YYYY-MM-DD from backend
+                    if (!isNaN(dateVal) && !isNaN(dateFilter)) {
+                        return (
+                            dateVal.getFullYear() === dateFilter.getFullYear() &&
+                            dateVal.getMonth() === dateFilter.getMonth() &&
+                            dateVal.getDate() === dateFilter.getDate()
+                        );
+                    }
+                    return false;
+                }
+
                 return val === filter;
+            }
             case 'does not equal':
                 return val !== filter;
             case 'between':
@@ -116,18 +145,22 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
     ];
 
     const operatorOptions = (column) => {
-        return column === 'Date of Incident'
-            ? ['equals', 'between']
-            : ['contains', 'does not contain', 'equals', 'does not equal'];
+        if (column === 'Date of Incident') {
+            return ['equals', 'between'];
+        } else if (column === 'Lead Safety Group') {
+            return ['equals', 'does not equal'];
+        } else {
+            return ['contains', 'does not contain', 'equals', 'does not equal'];
+        }
     };
 
     const logicOptions = ['AND', 'OR'];
 
     const columnKeyMap = {
-        'Incident Number': 'number',
-        'Incident Type': 'type',
+        'Incident Number': 'record_id',
+        'Incident Type': 'non_type_concat',
         'Name of Person Involved': 'person',
-        'Date of Incident': 'date',
+        'Date of Incident': 'non_date',
         'Name of Incident Lead': 'lead',
         'Lead Safety Group': 'group',
         'Status of Incident': 'status',
@@ -210,6 +243,14 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                                     onChange={(e) => updateFilter(index, 'value', e.target.value)}
                                 />
                             )
+                        ) : filter.column === 'Lead Safety Group' ? (
+                            <Select
+                                label="Value"
+                                placeholder="Select group"
+                                data={uniqueGroups}
+                                value={filter.value}
+                                onChange={(value) => updateFilter(index, 'value', value)}
+                            />
                         ) : (
                             <TextInput
                                 label="Value"
