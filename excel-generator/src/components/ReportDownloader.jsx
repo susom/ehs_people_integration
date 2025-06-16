@@ -49,7 +49,7 @@ const ReportDownloader = () => {
                         document.body.removeChild(link);
                         setSuccessMsg('Report downloaded as "OSHA_Form_300_Filled.xlsx"');
                     } else {
-                        setErrorMsg('Failed to generate the report. Please try again.');
+                        setErrorMsg(response.message);
                     }
                 })
                 .catch((err) => {
