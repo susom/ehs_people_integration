@@ -5,7 +5,7 @@
 $module->injectJSMO();
 
 // Fetch minified react files to inject as page assets
-$files = $module->generateAssetFiles();
+$files = $module->generateAssetFiles($module::BUILD_FILE_DIR);
 
 ?>
 

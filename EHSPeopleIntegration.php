@@ -13,6 +13,22 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 
     const BUILD_FILE_DIR = 'ehs-dashboard/dist/assets';
+
+    const EXCEL_GENERATOR_DIR = 'excel-generator/dist/assets';
+
+    const OSHA_DATE_OF_INJURY = 'emp_incident_date';
+    const OSHA_FIELDS = [
+      'osha_name' => 'osha_hide_name_3',
+      'job_title' => 'osha_job_title',
+      'description' => 'osha_description',
+      'location' => 'osha_location',
+      'date_of_injury'  => self::OSHA_DATE_OF_INJURY,
+      'injury_location' => 'osha_address_hide',
+      'case_type' => 'osha_type',
+      'combined_total_days'  => 'osha_combined_total_days',
+      'total_restrict_days' => 'osha_total_restrict_days',
+      'inj_ill_class' => 'osha_inj_ill_class'
+    ];
     public function __construct() {
         parent::__construct();
         // Other code to run when object is instantiated
@@ -33,12 +49,12 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
     /**
      * @return array
      */
-    public function generateAssetFiles(): array
+    public function generateAssetFiles($path): array
     {
         $cwd = $this->getModulePath();
         $assets = [];
 
-        $full_path = $cwd . self::BUILD_FILE_DIR . '/';
+        $full_path = $cwd . $path . '/';
         $dir_files = scandir($full_path);
 
         // Check if scandir failed
@@ -50,7 +66,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         $dir_files = array_diff($dir_files, array('..', '.'));
 
         foreach ($dir_files as $file) {
-            $url = $this->getUrl(self::BUILD_FILE_DIR . '/' . $file);
+            $url = $this->getUrl($path . '/' . $file);
             $html = '';
             if (str_contains($file, '.js')) {
                 $html = "<script type='module' crossorigin src='{$url}'></script>";
@@ -72,11 +88,16 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 //            $sanitized = $this->sanitizeInput($payload);
             return match ($action) {
                 'getRecords' => $this->getRecords($payload),
+                'generateExcelFile' => $this->generateExcelFile($payload),
                 default => throw new Exception ("Action $action is not defined"),
             };
         } catch (\Exception $e) {
             // log error
             \REDCap::logEvent($e);
+            return [
+                "success" => false,
+                'message' => $e->getMessage()
+            ];
         }
     }
 
@@ -191,66 +212,172 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                 $parsedArray[(int)$parts[0]] = $parts[1]; // Convert key to integer
             }
         }
+        return $parsedArray;
     }
 
-    public function testExcelFile()
+    public function generateExcelFile($payload)
+    {
+        $records = $this->getDateRangeRecords($payload['start'], $payload['end']);
+        $preparedData = $this->prepareOshaRecords($records);
+        $this->insertRecordToExcelFile($preparedData);
+
+        return [
+            "success" => true,
+            'url' => $this->getUrl('OSHA_Form_300_Filled.xlsx'),
+        ];
+    }
+
+    public function prepareOshaRecords($records)
+    {
+        $preparedRecords = [];
+        $eventId = $this->getFirstEventId();
+        foreach ($records as $recordId =>$record) {
+            $temp = [];
+            foreach (self::OSHA_FIELDS as $key => $field) {
+                $temp[$key] = $record[$eventId][$field];
+            }
+            $preparedRecords[] = $temp;
+        }
+        return $preparedRecords;
+    }
+    public function getDateRangeRecords($start, $end)
     {
 
+        $filter = "[".self::OSHA_DATE_OF_INJURY."] >='" . date('Y-m-d', strtotime($start)) . "' AND [".self::OSHA_DATE_OF_INJURY."] <='" . date('Y-m-d', strtotime($end)) . "'";
+        $param = [
+            'project_id' => $this->getProjectId(),
+            'filterLogic' => $filter,
+        ];
+        return \REDCap::getData($param);
+    }
+    public function insertRecordToExcelFile($preparedData)
+    {
         // Load existing Excel file (your OSHA Form 300 template)
         $spreadsheet = IOFactory::load(__DIR__ . '/osha_template.xlsx');
         $sheet = $spreadsheet->getActiveSheet();
 
-        $caseData = [
-            ['1', 'John Doe', 'Cut on hand', '01/15/2024', 'Manufacturing', 'Days Away'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            ['2', 'Jane Smith', 'Slip and fall', '02/20/2024', 'Warehouse', 'Job Transfer'],
-            // Add more rows here
-        ];
+        // establishment name
+        $sheet->setCellValue("I11", "Stanford University");
+        // establishment city
+        $sheet->setCellValue("J12", "Palo Alto");
+        // establishment state
+        $sheet->setCellValue("N12", "California");
 
 // Start inserting at row 25
         $startRow = 25;
         $caseNum = 1;
-        foreach ($caseData as $index => $row) {
+        foreach ($preparedData as $index => $row) {
             $rowIndex = $startRow + $index;
 
-            $sheet->insertNewRowBefore($rowIndex, 1); // Insert 1 new row before the current index
+            if($index > 9){
+                $sheet->insertNewRowBefore($rowIndex, 1); // Insert 1 new row before the current index
+            }
 
             // Optional: copy style from previous row (24 in this example)
             $sheet->duplicateStyle($sheet->getStyle('A24:F24'), "A{$rowIndex}:F{$rowIndex}");
 
 
             $sheet->setCellValue("A{$rowIndex}", $caseNum); // Case No.
-            $sheet->setCellValue("B{$rowIndex}", $row[1]); // Employee Name
-            $sheet->setCellValue("C{$rowIndex}", $row[2]); // Description
-            $sheet->setCellValue("D{$rowIndex}", $row[3]); // Date
-            $sheet->setCellValue("E{$rowIndex}", $row[4]); // Department
-            $sheet->setCellValue("F{$rowIndex}", $row[5]); // Outcome
+            $sheet->setCellValue("B{$rowIndex}", $row['osha_name']); // Employee Name
+            $sheet->setCellValue("C{$rowIndex}", $row['job_title']); // Job title
+            $sheet->setCellValue("D{$rowIndex}", date('m/d', strtotime($row['date_of_injury']))); // Date of injury
+            $sheet->setCellValue("E{$rowIndex}", $row['location']); // Location
+            $sheet->setCellValue("F{$rowIndex}", $row['description']); // Description
+
+            // CHECK ONLY ONE box for each case based on the most serious outcome for that case:
+            if($row['case_type']['1'] === '1') {
+                $sheet->setCellValue("G{$rowIndex}", 'x'); // Death
+            }
+            if($row['case_type']['2'] === '1') {
+                $sheet->setCellValue("H{$rowIndex}", 'x'); // Days away from work
+            }
+            if($row['case_type']['3'] === '1') {
+                $sheet->setCellValue("H{$rowIndex}", 'x'); // Job transfer or restriction
+            }
+            if($row['case_type']['99'] === '1') {
+                $sheet->setCellValue("H{$rowIndex}", 'x'); // Other record-able cases
+            }
+
+            $sheet->setCellValue("K{$rowIndex}", $row['combined_total_days']); // Away From Work (days)
+            $sheet->setCellValue("L{$rowIndex}", $row['total_restrict_days']); // On job transfer or restriction (days)
+
+            //Enter the number of days the injured or ill worker was:
+            if($row['inj_ill_class']['1'] === '1') {
+                $sheet->setCellValue("M{$rowIndex}", 'x'); // Injury
+            }
+            if($row['inj_ill_class']['2'] === '1') {
+                $sheet->setCellValue("N{$rowIndex}", 'x'); // Skin Disorder
+            }
+            if($row['inj_ill_class']['3'] === '1') {
+                $sheet->setCellValue("N{$rowIndex}", 'x'); // Respiratory Condition
+            }
+            if($row['inj_ill_class']['4'] === '1') {
+                $sheet->setCellValue("N{$rowIndex}", 'x'); // Poisoning
+            }
+            if($row['inj_ill_class']['5'] === '1') {
+                $sheet->setCellValue("N{$rowIndex}", 'x'); // Hearing Loss
+            }
+            if($row['inj_ill_class']['6'] === '1') {
+                $sheet->setCellValue("N{$rowIndex}", 'x'); // All other illnesses
+            }
+
+            // update excel calculation fields (Page Totals)
+            $pageTotalIndexField = $startRow + $index + 10;
+            $previousTotalIndexField = $pageTotalIndexField - 1;
+
+            // only update calculation fields for Page totals when more than 10 records exists
+            if($index > 9) {
+                // death column G
+                $sheet->setCellValue("G{$pageTotalIndexField}", "=COUNTIF(G$startRow:G$previousTotalIndexField,\"=x\")");
+
+                // Days away from work column H
+                $sheet->setCellValue("H{$pageTotalIndexField}", "=COUNTIF(H$startRow:H$previousTotalIndexField,\"=x\")");
+
+                // Job transfer or restriction column I
+                $sheet->setCellValue("I{$pageTotalIndexField}", "=COUNTIF(I$startRow:I$previousTotalIndexField,\"=x\")");
+
+                // Other record-able cases column J
+                $sheet->setCellValue("J{$pageTotalIndexField}", "=COUNTIF(J$startRow:J$previousTotalIndexField,\"=x\")");
+
+                // Away From Work (days) column K
+                $sheet->setCellValue("K{$pageTotalIndexField}", "=SUM(K$startRow:K$previousTotalIndexField)");
+
+                // On job transfer or restriction (days) column L
+                $sheet->setCellValue("L{$pageTotalIndexField}", "=SUM(L$startRow:L$previousTotalIndexField)");
+
+                // Injury column M
+                $sheet->setCellValue("M{$pageTotalIndexField}", "=COUNTIF(M$startRow:M$previousTotalIndexField,\"=x\")");
+
+                // Skin Disorder column N
+                $sheet->setCellValue("N{$pageTotalIndexField}", "=COUNTIF(N$startRow:N$previousTotalIndexField,\"=x\")");
+
+                // Respiratory Condition column O
+                $sheet->setCellValue("O{$pageTotalIndexField}", "=COUNTIF(O$startRow:O$previousTotalIndexField,\"=x\")");
+
+                // Poisoning column P
+                $sheet->setCellValue("P{$pageTotalIndexField}", "=COUNTIF(P$startRow:P$previousTotalIndexField,\"=x\")");
+
+                // Hearing Loss column Q
+                $sheet->setCellValue("Q{$pageTotalIndexField}", "=COUNTIF(Q$startRow:Q$previousTotalIndexField,\"=x\")");
+
+                // All other illnesses column R
+                $sheet->setCellValue("R{$pageTotalIndexField}", "=COUNTIF(R$startRow:R$previousTotalIndexField,\"=x\")");
+            }
             $caseNum++;
         }
 
-// Save the updated file
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
-        $writer->save(__DIR__ ."/OSHA_Form_300_Filled.xlsx");
+        // Save the updated file
+        $data = $this->downloadExcelFile($spreadsheet);
 
-        echo "OSHA Form 300 updated successfully.";
+        \REDCap::logEvent( "OSHA Form 300 updated successfully.");
+        return $data;
+    }
+
+    public function downloadExcelFile($spreadsheet)
+    {
+        // Write to output buffer
+        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+
+        $writer->save(__DIR__ ."/OSHA_Form_300_Filled.xlsx");
     }
 }

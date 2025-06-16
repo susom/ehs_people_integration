@@ -1,44 +1,67 @@
-// src/components/ReportDownloader.jsx
 import React, { useState } from 'react';
-import { Button, Container, Stack, Title, Text } from '@mantine/core';
+import {
+    Button,
+    Container,
+    Stack,
+    Title,
+    Alert,
+} from '@mantine/core';
 import { DatePickerInput } from '@mantine/dates';
-import dayjs from 'dayjs';
-import axios from 'axios';
-import { saveAs } from 'file-saver';
+import { IconCheck, IconAlertCircle } from '@tabler/icons-react';
 
 const ReportDownloader = () => {
     const [startDate, setStartDate] = useState(null);
     const [endDate, setEndDate] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [successMsg, setSuccessMsg] = useState('');
+    const [errorMsg, setErrorMsg] = useState('');
 
     const handleDownload = async () => {
+        setSuccessMsg('');
+        setErrorMsg('');
+
         if (!startDate || !endDate) {
-            alert('Please select both dates.');
+            setErrorMsg('Please select both start and end dates.');
             return;
         }
 
         setLoading(true);
         try {
-            const response = await axios.get('http://localhost:5000/api/report', {
-                params: {
-                    start: startDate.toISOString(),
-                    end: endDate.toISOString(),
-                },
-                responseType: 'blob',
-            });
+            let jsmoModule;
 
-            const blob = new Blob([response.data], {
-                type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            });
+            if (import.meta?.env?.MODE !== 'development') {
+                jsmoModule = ExternalModules.Stanford.EHSPeopleIntegration;
+            }
 
-            saveAs(
-                blob,
-                `report_${dayjs(startDate).format('YYYY-MM-DD')}_to_${dayjs(endDate).format('YYYY-MM-DD')}.xlsx`
-            );
+            jsmoModule
+                .ajax('generateExcelFile', {
+                    start: startDate,
+                    end: endDate,
+                })
+                .then((response) => {
+                    console.log(response);
+                    if (response.success && response.url) {
+                        const link = document.createElement('a');
+                        link.href = response.url;
+                        link.download = ''; // optional: override filename
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        setSuccessMsg('Report downloaded as "OSHA_Form_300_Filled.xlsx"');
+                    } else {
+                        setErrorMsg('Failed to generate the report. Please try again.');
+                    }
+                })
+                .catch((err) => {
+                    console.error('Error', err);
+                    setErrorMsg('An error occurred while generating the report.');
+                })
+                .finally(() => {
+                    setLoading(false);
+                });
         } catch (err) {
             console.error(err);
-            alert('Failed to download report.');
-        } finally {
+            setErrorMsg('Unexpected error. Failed to download report.');
             setLoading(false);
         }
     };
@@ -48,7 +71,19 @@ const ReportDownloader = () => {
             <Title order={2} mb="md">
                 Download Report
             </Title>
+
             <Stack spacing="md">
+                {successMsg && (
+                    <Alert icon={<IconCheck size={16} />} color="green" title="Success">
+                        {successMsg}
+                    </Alert>
+                )}
+                {errorMsg && (
+                    <Alert icon={<IconAlertCircle size={16} />} color="red" title="Error">
+                        {errorMsg}
+                    </Alert>
+                )}
+
                 <DatePickerInput
                     label="Start Date"
                     placeholder="Pick start date"
@@ -61,6 +96,7 @@ const ReportDownloader = () => {
                     value={endDate}
                     onChange={setEndDate}
                 />
+
                 <Button onClick={handleDownload} loading={loading}>
                     Download Excel
                 </Button>
