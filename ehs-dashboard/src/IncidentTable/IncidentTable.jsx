@@ -135,22 +135,27 @@ export default function IncidentTable() {
         setActivePage(1); // Reset to first page
     };
 
-    const recordRedirectUrl = (record) => {
-        if(record) {
-            const urlObj = new URL(window.location.href);
+    const buildRedirectUrl = (record, formName = null) => {
+        if (!record) return;
 
-            // Extract `pid` from query parameters
-            const pid = urlObj.searchParams.get('pid');
-            const cleanedPath = urlObj.pathname.replace(/\/ExternalModules\/.*/, '/');
+        const urlObj = new URL(window.location.href);
+        const pid = urlObj.searchParams.get('pid');
+        const cleanedPath = urlObj.pathname.replace(/\/ExternalModules\/.*/, '/');
+        const baseUrl = urlObj.origin + cleanedPath;
 
-            const baseUrl = urlObj.origin + cleanedPath;
-            return `${baseUrl}DataEntry/record_home.php?pid=${pid}&id=${record}`
+        if (formName) {
+            // Redirect to specific form
+            return `${baseUrl}DataEntry/index.php?pid=${pid}&page=${formName}&id=${record}`;
+        } else {
+            // Redirect to record home
+            return `${baseUrl}DataEntry/record_home.php?pid=${pid}&id=${record}`;
         }
-    }
+    };
+
 
     return (
         <Box p={20}>
-           <IncidentSummary total={filteredData.length}/>
+           <IncidentSummary data={sortedData}/>
             <Card shadow="sm" withBorder>
                 <Group
                     justify="space-between"
@@ -197,34 +202,43 @@ export default function IncidentTable() {
                                     'Incident Type',
                                     'Name of Person Involved',
                                     'Date of Incident',
+                                    'Date Reported',
                                     'Name of Incident Lead',
                                     'Lead Safety Group',
-                                    ...statusColumns,
+                                    'Location Type',
+                                    'Name of Manager/PI',
+                                    'Building',
+
+                                    ...statusColumns.map(([label]) => label), // ✅ Only show display labels
                                 ].map((label, index) => (
                                     <Table.Th
                                         key={index}
                                         onClick={() => handleSort(index)}
                                         style={{ cursor: 'pointer' }}
                                     >
-                                        {label}{' '}
-                                        {sortColumn === index ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                                        {label} {sortColumn === index ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
                                     </Table.Th>
                                 ))}
                             </Table.Tr>
                         </Table.Thead>
+
                         <Table.Tbody>
                             {currentPageData.map((incident) => {
-                                const fullText = incident?.non_type_concat || '';
-                                const truncated = fullText.length > 75
-                                    ? fullText.slice(0, 75) + '...'
+                                const fullText = incident?.non_type_concat || incident?.emp_inc_type_concat || '';
+                                const truncated = fullText.length > 50
+                                    ? fullText.slice(0, 50) + '...'
                                     : fullText;
 
                                 return (
                                     <Table.Tr key={incident?.record_id}>
-                                        <Table.Td><a href={recordRedirectUrl(incident?.record_id)}>{incident?.record_id}</a></Table.Td>
+                                        <Table.Td>
+                                            <a href={buildRedirectUrl(incident?.record_id)}>
+                                                {incident?.record_id}
+                                            </a>
+                                        </Table.Td>
 
                                         <Table.Td>
-                                            {fullText.length > 75 ? (
+                                            {fullText.length > 50 ? (
                                                 <Tooltip label={fullText} multiline w={300} withArrow>
                                                     <Text size="sm" truncate>{truncated}</Text>
                                                 </Tooltip>
@@ -233,34 +247,60 @@ export default function IncidentTable() {
                                             )}
                                         </Table.Td>
 
-                                        <Table.Td>{incident?.non_name}</Table.Td>
-                                        <Table.Td>{incident?.non_date}</Table.Td>
+                                        <Table.Td>
+                                            {incident?.non_name
+                                                || (incident?.emp_first_name && incident?.emp_last_name
+                                                    ? `${incident.emp_first_name} ${incident.emp_last_name}`
+                                                    : null)}
+                                        </Table.Td>
+                                        <Table.Td>{incident?.non_date || incident?.emp_incident_date}</Table.Td>
+                                        <Table.Td>{incident?.non_timestamp || incident?.emp_timestamp}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_name}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_safety_group}</Table.Td>
-
+                                        <Table.Td>{incident?.non_location_type || incident?.emp_location_type}</Table.Td>
+                                        <Table.Td>{`${incident.emp_first_name_manag} ${incident.emp_last_name_manag}`}</Table.Td>
+                                        <Table.Td>{incident?.non_building || incident?.emp_building}</Table.Td>
                                         {/* Dynamically render status columns */}
-                                        {statusColumns.map((colName, i) => {
-                                            const value = incident?.completed_statuses?.[colName] ?? '';
+                                        {statusColumns.map(([label, fieldName], i) => {
+                                            const value = incident?.completed_statuses?.[label] ?? '';
                                             const statusMap = {
-                                                '2': { color: 'green', label: 'Complete' },
-                                                '1': { color: 'yellow', label: 'Unverified' },
-                                                '0': { color: 'red', label: 'Incomplete' },
+                                                '2': { color: 'rgba(0, 128, 0, 0.7)', label: 'Complete' },
+                                                '1': { color: 'rgba(255, 215, 0, 0.7)', label: 'Unverified' },
+                                                '0': { color: 'rgba(128, 128, 128, 0.8)', label: 'Incomplete' },
                                             };
 
-                                            const status = statusMap[value] ?? { color: 'gray', label: 'Unknown' };
+                                            const status = statusMap[value] ?? { color: 'rgba(128, 128, 128, 0.6)', label: 'Not started' };
 
                                             return (
                                                 <Table.Td key={`status-${i}`}>
                                                     <Tooltip label={status.label} withArrow>
-                                                        <ColorSwatch
+                                                        <span
+                                                            onClick={() => { window.location.href = buildRedirectUrl(incident?.record_id, fieldName);}}
                                                             style={{
-                                                                border: '1px solid gray',
-                                                                boxShadow: '0 0 10px white',
-                                                                borderRadius: '50%',
+                                                                display: 'inline-block',
+                                                                cursor: 'pointer',
                                                             }}
-                                                            color={status.color}
-                                                            size={16}
-                                                        />
+                                                            onMouseEnter={(e) => {
+                                                                e.currentTarget.style.textDecoration = 'underline';
+                                                            }}
+                                                            onMouseLeave={(e) => {
+                                                                e.currentTarget.style.textDecoration = 'none';
+                                                            }}
+                                                        >
+                                                            <ColorSwatch
+                                                                style={{
+                                                                    border: '1px solid gray',
+                                                                    boxShadow: '0 0 4px white',
+                                                                    borderRadius: '50%',
+                                                                    backgroundColor: 'transparent',
+                                                                    backgroundImage: `radial-gradient(circle, ${status.color} 70%, transparent 100%)`,
+                                                                    backgroundClip: 'content-box',
+                                                                    padding: 0,
+                                                                }}
+                                                                color={status.color}
+                                                                size={18}
+                                                            />
+                                                          </span>
                                                     </Tooltip>
                                                 </Table.Td>
                                             );
@@ -280,7 +320,14 @@ export default function IncidentTable() {
                     </Group>
                 </ScrollArea>
             </Card>
-            <FilterModal opened={opened} onClose={close} data={data} onApplyFilters={(e) => handleApplyFilters(e)} setFilterApplied={setFilterApplied} />
+            <FilterModal
+                opened={opened}
+                onClose={close}
+                data={data}
+                onApplyFilters={(e) => handleApplyFilters(e)}
+                setFilterApplied={setFilterApplied}
+                statusColumns={statusColumns}
+            />
         </Box>
     );
 }

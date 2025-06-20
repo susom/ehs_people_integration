@@ -84,11 +84,10 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         foreach($pSettings['status-column'] as $formName){
             $completeFields[] = $formName . "_complete";
         }
-        $default = ["record_id", "non_type", "emp_inc_type", "non_name", "emp_first_name", "emp_last_name", "non_date", "emp_incident_date", "tri_lead_name", "tri_lead_safety_group"];
 
         $detailsParams = [
             "return_format" => "json",
-            "fields" => array_merge($default, $completeFields),
+            "combine_checkbox_values" => true,
             "project_id" => $this->getProjectId(),
         ];
 
@@ -113,60 +112,72 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             // Parse label
             $parts = explode('_', $field);
             array_pop($parts); // remove 'complete'
+            $formName = implode('_', $parts);
             $label = ucwords(implode(' ', $parts)); // e.g., "some_words" -> "Some Words"
 
-            $statusList[] = $label;
+            $statusList[] = [$label, $formName];
         }
         return $statusList;
     }
 
-    /**
-     * @param $records
-     * @param $completeFields
-     * @return array
-     */
     function normalizeData($records, $completeFields): array
     {
-        $nonTypeValues = [];
-        $statusList = [];
         $project = new \Project(PROJECT_ID);
-        $parsed = $this->parseEnumField($project->metadata["non_type"]['element_enum']);
+        $pSettings = $this->getProjectSettings();
+        // Parse enum fields once
+        $parsedEnums = [
+            'non_type' => $this->parseEnumField($project->metadata["non_type"]['element_enum']),
+            'emp_inc_type' => $this->parseEnumField($project->metadata["emp_inc_type"]['element_enum']),
+            'tri_lead_safety_group' => $this->parseEnumField($project->metadata['tri_lead_safety_group']['element_enum']),
+            'location_type' => $this->parseEnumField($project->metadata['non_location_type']['element_enum']),
+        ];
 
         foreach ($records as $k => $record) {
-            $nonTypeValues = []; // move inside to reset per-record
+            $nonTypeValues = [];
+            $empTypeValues = [];
             $statusList = [];
 
             foreach ($record as $key => $value) {
-                // Convert non_type checkbox to list of values
-                if (preg_match('/^non_type___(\d+)$/', $key, $matches) && $value === "1") {
-                    $num = (int)$matches[1];
-                    $nonTypeValues[] = $parsed[$num];
+                $ids = array_map('trim', explode(',', $value));
+
+                // Map multi-select fields
+                if ($key === "non_type") {
+                    $nonTypeValues = array_map(fn($id) => $parsedEnums['non_type'][$id] ?? '', $ids);
                 }
 
-                // Format date field
-                if ($key === "non_date") {
+                if ($key === "emp_inc_type") {
+                    $empTypeValues = array_map(fn($id) => $parsedEnums['emp_inc_type'][$id] ?? '', $ids);
+                }
+
+                if (in_array($key, ["non_location_type", "emp_location_type"])) {
+                    $mapped = array_map(fn($id) => $parsedEnums['location_type'][$id] ?? '', $ids);
+                    $records[$k][$key] = implode(', ', $mapped);
+                }
+
+                // Map single-select field
+                if ($key === "tri_lead_safety_group") {
+                    $records[$k][$key] = $parsedEnums['tri_lead_safety_group'][(int) $value] ?? $value;
+                }
+
+                // Format date fields
+                if (in_array($key, ["non_date", "emp_incident_date"])) {
                     $date = DateTime::createFromFormat('Y-m-d', $value);
                     if ($date) {
-                        $records[$k]["non_date"] = $date->format('m-d-Y');
+                        $records[$k][$key] = $date->format('m-d-Y');
                     }
                 }
             }
 
-            // Build completed_statuses array with parsed labels
-
+            // Construct completed_statuses using label from field name
             foreach ($completeFields as $fieldName) {
                 $statusValue = $record[$fieldName] ?? '';
-
-                // Parse label
-                $parts = explode('_', $fieldName);
-                array_pop($parts); // remove 'complete'
-                $label = ucwords(implode(' ', $parts)); // e.g., "some_words" -> "Some Words"
-
+                $label = ucwords(str_replace('_', ' ', preg_replace('/_complete$/', '', $fieldName)));
                 $statusList[$label] = $statusValue;
             }
-
+            $records[$k]['open-form'] = $pSettings['open-form'] . "_complete";
             $records[$k]['completed_statuses'] = $statusList;
             $records[$k]['non_type_concat'] = implode(', ', $nonTypeValues);
+            $records[$k]['emp_inc_type_concat'] = implode(', ', $empTypeValues);
         }
 
         return $records;
