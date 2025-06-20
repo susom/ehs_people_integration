@@ -8,8 +8,6 @@ require 'vendor/autoload.php';
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
 
-
-
 class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 
     const BUILD_FILE_DIR = 'ehs-dashboard/dist/assets';
@@ -160,21 +158,34 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             'location_type' => $this->parseEnumField($project->metadata['non_location_type']['element_enum']),
         ];
 
+//        $this_form_survey_responses = $surveyResponses[$this_record][$attr['event_id']][$attr['form_name']] ?? [];
         foreach ($records as $k => $record) {
-            $nonTypeValues = [];
             $empTypeValues = [];
             $statusList = [];
-
+//            $formStatusValues = Records::getFormStatus(PROJECT_ID, ['1']);
+//            $surveyResponses = Survey::getResponseStatus($project_id, array_keys($formStatusValues)) : [];
+//            $a = Survey::getResponseStatus(PROJECT_ID, array_keys($formStatusValues));
             foreach ($record as $key => $value) {
                 $ids = array_map('trim', explode(',', $value));
 
-                // Map multi-select fields
-                if ($key === "non_type") {
-                    $nonTypeValues = array_map(fn($id) => $parsedEnums['non_type'][$id] ?? '', $ids);
+                // Map multi-select fields to one column
+                if ($key === "non_type" || $key === "emp_inc_type") {
+                    if(!empty($value)){
+                        $incidentTypeValues = array_map(
+                            fn($id) => $parsedEnums[$key][$id] ?? '',
+                            $ids
+                        );
+                        $records[$k]['incident_type_concat'] = implode(', ', $incidentTypeValues);
+                    }
                 }
 
-                if ($key === "emp_inc_type") {
-                    $empTypeValues = array_map(fn($id) => $parsedEnums['emp_inc_type'][$id] ?? '', $ids);
+                // Set the 'name_of_person_involved' field based on either non-employee name or employee first name
+                if (($key === "non_name" || $key === "emp_first_name") && !empty($value)) {
+                    $records[$k]['name_of_person_involved'] = $key === "non_name"
+                        // If it's a non-employee name, use the value directly
+                        ? $value
+                        // If it's an employee, concatenate first and last name (last name may be unset)
+                        : $value . ' ' . ($records[$k]['emp_last_name'] ?? '');
                 }
 
                 if (in_array($key, ["non_location_type", "emp_location_type"])) {
@@ -187,11 +198,11 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                     $records[$k][$key] = $parsedEnums['tri_lead_safety_group'][(int) $value] ?? $value;
                 }
 
-                // Format date fields
-                if (in_array($key, ["non_date", "emp_incident_date"])) {
+                // Format date_of_incident field based on either non_date or emp_incident_date
+                if (in_array($key, ["non_date", "emp_incident_date"]) && !empty($value)) {
                     $date = DateTime::createFromFormat('Y-m-d', $value);
                     if ($date) {
-                        $records[$k][$key] = $date->format('m-d-Y');
+                        $records[$k]['date_of_incident'] = $date->format('m-d-Y');
                     }
                 }
             }
@@ -204,7 +215,6 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             }
             $records[$k]['open-form'] = $pSettings['open-form'] . "_complete";
             $records[$k]['completed_statuses'] = $statusList;
-            $records[$k]['non_type_concat'] = implode(', ', $nonTypeValues);
             $records[$k]['emp_inc_type_concat'] = implode(', ', $empTypeValues);
         }
 
