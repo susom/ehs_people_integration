@@ -29,9 +29,9 @@ const chunk = (array, size) => {
 // Column to key map for sorting
 const columnKeyMap = {
     0: 'record_id',
-    1: 'non_type_concat',
-    2: 'non_name',
-    3: 'non_date',
+    1: 'incident_type_concat',
+    2: 'name_of_person_involved',
+    3: 'date_of_incident',
     4: 'tri_lead_name',
     5: 'tri_lead_safety_group',
 };
@@ -88,19 +88,38 @@ export default function IncidentTable() {
         if (sortColumn === null) return [...sourceData];
 
         const key = columnKeyMap[sortColumn];
+
+        const getTimestamp = (val) => {
+            //TODO: Fix for sorting
+            if (!val || typeof val !== 'string') return NaN;
+
+            val = val.trim();
+
+            // Try to normalize MM-DD-YYYY to ISO format
+            const mmddyyyy = /^(\d{2})-(\d{2})-(\d{4})$/;
+            const match = val.match(mmddyyyy);
+            if (match) {
+                const [_, mm, dd, yyyy] = match;
+                return new Date(`${yyyy}-${mm}-${dd}T00:00:00`).getTime();
+            }
+
+            // Fallback: try native parsing (supports ISO, YYYY-MM-DD, YYYY-MM-DD HH:mm, etc.)
+            const parsed = Date.parse(val);
+            return isNaN(parsed) ? NaN : parsed;
+        };
+
         return [...sourceData].sort((a, b) => {
-            let aVal = a[key] ?? '';
-            let bVal = b[key] ?? '';
+            const aVal = a[key] ?? '';
+            const bVal = b[key] ?? '';
 
-            if (!isNaN(Date.parse(aVal)) && !isNaN(Date.parse(bVal))) {
-                aVal = new Date(aVal);
-                bVal = new Date(bVal);
+            const aTs = getTimestamp(aVal);
+            const bTs = getTimestamp(bVal);
+
+            if (!isNaN(aTs) && !isNaN(bTs)) {
+                return sortDirection === 'asc' ? aTs - bTs : bTs - aTs;
             }
 
-            if (typeof aVal === 'number' && typeof bVal === 'number') {
-                return sortDirection === 'asc' ? aVal - bVal : bVal - aVal;
-            }
-
+            // fallback string comparison
             return sortDirection === 'asc'
                 ? aVal.toString().localeCompare(bVal.toString())
                 : bVal.toString().localeCompare(aVal.toString());
@@ -208,7 +227,6 @@ export default function IncidentTable() {
                                     'Location Type',
                                     'Name of Manager/PI',
                                     'Building',
-
                                     ...statusColumns.map(([label]) => label), // ✅ Only show display labels
                                 ].map((label, index) => (
                                     <Table.Th
@@ -224,7 +242,7 @@ export default function IncidentTable() {
 
                         <Table.Tbody>
                             {currentPageData.map((incident) => {
-                                const fullText = incident?.non_type_concat || incident?.emp_inc_type_concat || '';
+                                const fullText = incident?.incident_type_concat || '';
                                 const truncated = fullText.length > 50
                                     ? fullText.slice(0, 50) + '...'
                                     : fullText;
@@ -248,12 +266,9 @@ export default function IncidentTable() {
                                         </Table.Td>
 
                                         <Table.Td>
-                                            {incident?.non_name
-                                                || (incident?.emp_first_name && incident?.emp_last_name
-                                                    ? `${incident.emp_first_name} ${incident.emp_last_name}`
-                                                    : null)}
+                                            {incident?.name_of_person_involved}
                                         </Table.Td>
-                                        <Table.Td>{incident?.non_date || incident?.emp_incident_date}</Table.Td>
+                                        <Table.Td>{incident?.date_of_incident}</Table.Td>
                                         <Table.Td>{incident?.non_timestamp || incident?.emp_timestamp}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_name}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_safety_group}</Table.Td>
