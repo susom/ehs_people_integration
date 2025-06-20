@@ -119,8 +119,12 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                 }
             }
             case 'does not contain': {
-                const tokens = val.split(',').map((s) => s.trim());
-                return !tokens.some((token) => token === filter);
+                if (val.includes(',')) {
+                    const tokens = val.split(',').map((s) => s.trim());
+                    return tokens.some((token) => token.includes(filter));
+                } else {
+                    return val.includes(filter);
+                }
             }
             case 'equals': {
                 const mmddyyyyRegex = /^\d{2}-\d{2}-\d{4}$/;
@@ -201,9 +205,9 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
     const columnKeyMap = {
         'Incident Number': 'record_id',
-        'Incident Type': 'non_type_concat',
-        'Name of Person Involved': 'non_name',
-        'Date of Incident': 'non_date',
+        'Incident Type': 'incident_type_concat',
+        'Name of Person Involved': 'name_of_person_involved',
+        'Date of Incident': 'date_of_incident',
         'Name of Incident Lead': 'tri_lead_name',
         'Lead Safety Group': 'tri_lead_safety_group',
         'Status of Incident': 'status',
