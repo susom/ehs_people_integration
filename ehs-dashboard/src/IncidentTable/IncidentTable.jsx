@@ -32,8 +32,12 @@ const columnKeyMap = {
     1: 'incident_type_concat',
     2: 'name_of_person_involved',
     3: 'date_of_incident',
-    4: 'tri_lead_name',
-    5: 'tri_lead_safety_group',
+    4: 'date_reported',
+    5: 'tri_lead_name',
+    6: 'tri_lead_safety_group',
+    7: 'location_type',
+    8: 'employee_manager_name',
+    9: 'building_location'
 };
 
 export default function IncidentTable() {
@@ -90,6 +94,7 @@ export default function IncidentTable() {
         const key = columnKeyMap[sortColumn];
 
         const getTimestamp = (val) => {
+            console.log('value', val)
             //TODO: Fix for sorting
             if (!val || typeof val !== 'string') return NaN;
 
@@ -114,6 +119,7 @@ export default function IncidentTable() {
 
             const aTs = getTimestamp(aVal);
             const bTs = getTimestamp(bVal);
+            console.log('compare', aTs, bTs)
 
             if (!isNaN(aTs) && !isNaN(bTs)) {
                 return sortDirection === 'asc' ? aTs - bTs : bTs - aTs;
@@ -269,12 +275,12 @@ export default function IncidentTable() {
                                             {incident?.name_of_person_involved}
                                         </Table.Td>
                                         <Table.Td>{incident?.date_of_incident}</Table.Td>
-                                        <Table.Td>{incident?.non_timestamp || incident?.emp_timestamp}</Table.Td>
+                                        <Table.Td>{incident?.date_reported}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_name}</Table.Td>
                                         <Table.Td>{incident?.tri_lead_safety_group}</Table.Td>
-                                        <Table.Td>{incident?.non_location_type || incident?.emp_location_type}</Table.Td>
-                                        <Table.Td>{`${incident.emp_first_name_manag} ${incident.emp_last_name_manag}`}</Table.Td>
-                                        <Table.Td>{incident?.non_building || incident?.emp_building}</Table.Td>
+                                        <Table.Td>{incident?.location_type}</Table.Td>
+                                        <Table.Td>{incident?.employee_manager_name}</Table.Td>
+                                        <Table.Td>{incident?.building_location}</Table.Td>
                                         {/* Dynamically render status columns */}
                                         {statusColumns.map(([label, fieldName], i) => {
                                             const value = incident?.completed_statuses?.[label] ?? '';

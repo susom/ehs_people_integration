@@ -188,11 +188,6 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                         : $value . ' ' . ($records[$k]['emp_last_name'] ?? '');
                 }
 
-                if (in_array($key, ["non_location_type", "emp_location_type"])) {
-                    $mapped = array_map(fn($id) => $parsedEnums['location_type'][$id] ?? '', $ids);
-                    $records[$k][$key] = implode(', ', $mapped);
-                }
-
                 // Map single-select field
                 if ($key === "tri_lead_safety_group") {
                     $records[$k][$key] = $parsedEnums['tri_lead_safety_group'][(int) $value] ?? $value;
@@ -205,6 +200,33 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                         $records[$k]['date_of_incident'] = $date->format('m-d-Y');
                     }
                 }
+
+                if (in_array($key, ["non_timestamp", "emp_timestamp"]) && !empty($value)) {
+                    // Check if the string includes a time component
+                    $hasTime = preg_match('/\d{2}:\d{2}/', $value);
+
+                    // Append time if missing
+                    $normalized = $hasTime ? $value : ($value . ' 00:00');
+
+                    // Format as UTC in 'Y-m-d H:i'
+                    $records[$k]['date_reported'] = $normalized;
+                }
+
+                if (in_array($key, ["non_location_type", "emp_location_type"]) && !empty($value)) {
+                    $mapped = array_map(fn($id) => $parsedEnums['location_type'][$id] ?? '', $ids);
+                    $records[$k]['location_type'] = implode(', ', $mapped);
+                }
+
+                if (in_array($key, ["non_building", "emp_building"]) && !empty($value)) {
+                    $records[$k]['building_location'] = $value;
+                }
+
+                if ($key === "emp_first_name_manag" && !empty($value)) {
+                    $records[$k]['employee_manager_name'] = $value . " " . $records[$k]['emp_last_name_manag'];
+                }
+
+
+
             }
 
             // Construct completed_statuses using label from field name

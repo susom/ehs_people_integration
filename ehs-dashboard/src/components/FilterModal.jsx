@@ -175,29 +175,18 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Incident Type',
         'Name of Person Involved',
         'Date of Incident',
+        'Date Reported',
         'Name of Incident Lead',
         'Lead Safety Group',
+        'Location Type',
+        'Name of Manager/PI',
+        'Building'
     ];
 
     // Extract first elements from each status column entry passed from backend
     const dynamicStatusColumns = statusColumns?.map(([label]) => label) ?? [];
     const columnOptions = [...staticColumns, ...dynamicStatusColumns];
 
-    const operatorOptions = (column) => {
-        const dynamicLabels = statusColumns?.map(([label]) => label) ?? [];
-
-        if (column === 'Date of Incident') {
-            return ['equals', 'between'];
-        } else if (column === 'Lead Safety Group') {
-            return ['equals', 'does not equal'];
-        } else if (dynamicLabels.includes(column)) {
-            return ['equals', 'does not equal'];
-        } else {
-            return ['contains', 'does not contain', 'equals', 'does not equal'];
-        }
-    };
-
-    const logicOptions = ['AND', 'OR'];
     const dynamicColumnKeyMap = statusColumns?.reduce((acc, [label]) => {
         acc[label] = `completed_statuses.${label}`;
         return acc;
@@ -208,11 +197,30 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Incident Type': 'incident_type_concat',
         'Name of Person Involved': 'name_of_person_involved',
         'Date of Incident': 'date_of_incident',
+        'Date Recorded': 'date_recorded',
         'Name of Incident Lead': 'tri_lead_name',
         'Lead Safety Group': 'tri_lead_safety_group',
-        'Status of Incident': 'status',
+        'Location Type': 'location_type',
+        'Name of Manager/PI': 'employee_manager_name',
+        'Building': 'building_location',
         ...dynamicColumnKeyMap
     };
+
+    const operatorOptions = (column) => {
+
+        const dynamicLabels = statusColumns?.map(([label]) => label) ?? [];
+        if (column === 'Date of Incident') {
+            return ['equals', 'between'];
+        } else if (column === 'Lead Safety Group') {
+            return ['equals', 'does not equal'];
+        } else if (dynamicLabels.includes(column)) {
+            return ['equals', 'does not equal'];
+        } else {
+            return ['contains', 'does not contain', 'equals', 'does not equal'];
+        }
+
+    };
+    const logicOptions = ['AND', 'OR'];
 
     return (
         <Modal
