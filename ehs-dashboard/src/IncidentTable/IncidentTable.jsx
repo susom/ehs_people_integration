@@ -1,21 +1,21 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
-    Table,
-    ScrollArea,
+    ActionIcon,
     Box,
     Card,
-    ActionIcon,
+    ColorSwatch,
     Group,
-    Pagination,
-    Select,
     Indicator,
-    Tooltip,
+    Pagination,
+    ScrollArea,
+    Select,
+    Table,
     Text,
-    ColorSwatch
+    Tooltip
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import {useDisclosure} from '@mantine/hooks';
 import SearchBar from "../components/searchBar.jsx";
-import {IconFilter2Plus} from "@tabler/icons-react";
+import {IconFilter2Plus, IconTrash} from "@tabler/icons-react";
 import IncidentSummary from "../components/IncidentSummary.jsx";
 import FilterModal from "../components/FilterModal.jsx";
 // Utility function to chunk array into pages
@@ -63,6 +63,9 @@ export default function IncidentTable() {
     //     { number: 'INC-010', type: 'Biohazard Exposure', person: 'Bruce Banner', date: '2025-01-30', lead: 'Tony Stark', group: 'Lab Safety', status: 'Investigating' },
     // ]);
     const [filteredData, setFilteredData] = useState([])
+    const [filterSummary, setFilterSummary] = useState('')
+    const filterModalRef = useRef();
+
 
     useEffect(() => {
         let jsmoModule;
@@ -83,9 +86,12 @@ export default function IncidentTable() {
         );
     }, []);
 
-
-    const handleApplyFilters = (filtered) => {
+    const handleExternalClear = () => {
+        filterModalRef.current?.clearFiltersExternally();
+    };
+    const handleApplyFilters = (filtered, summary) => {
         setFilteredData(filtered);
+        setFilterSummary(summary)
     };
     // Sort data before chunking
     const getSortedData = (sourceData) => {
@@ -94,8 +100,6 @@ export default function IncidentTable() {
         const key = columnKeyMap[sortColumn];
 
         const getTimestamp = (val) => {
-            console.log('value', val)
-            //TODO: Fix for sorting
             if (!val || typeof val !== 'string') return NaN;
 
             val = val.trim();
@@ -119,7 +123,6 @@ export default function IncidentTable() {
 
             const aTs = getTimestamp(aVal);
             const bTs = getTimestamp(bVal);
-            console.log('compare', aTs, bTs)
 
             if (!isNaN(aTs) && !isNaN(bTs)) {
                 return sortDirection === 'asc' ? aTs - bTs : bTs - aTs;
@@ -132,13 +135,31 @@ export default function IncidentTable() {
         });
     };
 
-    const searchedData = filteredData.filter((item) =>
-        Object.values(item).some((value) =>
-            String(value || '') // ensure it's a string
+
+    const searchedData = filteredData.filter((item) => {
+        const shownKeys = [
+            'record_id',
+            'incident_type_concat',
+            'name_of_person_involved',
+            'date_of_incident',
+            'date_reported',
+            'tri_lead_name',
+            'tri_lead_safety_group',
+            'location_type',
+            'employee_manager_name',
+            'building_location',
+            ...statusColumns.map(([label]) => `completed_statuses.${label}`)
+        ];
+        return shownKeys.some((key) => {
+            const value = key.includes('completed_statuses.')
+                ? item.completed_statuses?.[key.split('.')[1]]
+                : item?.[key];
+
+            return String(value || '')
                 .toLowerCase()
-                .includes((searchValue || '').toLowerCase()) // handle undefined/null
-        )
-    );
+                .includes((searchValue || '').toLowerCase());
+        });
+    });
 
     const sortedData = getSortedData(searchedData);
     const pagesActive = chunk(sortedData, displayCount);
@@ -193,20 +214,48 @@ export default function IncidentTable() {
                         onChange={displayCountChange}
                     />
                     <Group gap="xs" align="center">
-                        <Indicator position="top-start" disabled={!filterApplied} color="green" size={12} processing>
+                        <Tooltip
+                            label={
+                                filterApplied ? (
+                                    <div>
+                                        {filterSummary.split('\n').map((line, i) => (
+                                            <div key={i}>{line}</div>
+                                        ))}
+                                    </div>
+                                ) : ''
+                            }
+                            disabled={!filterApplied}
+                            withArrow
+                            multiline
+                            width={220}
+                        >
+                            <Indicator position="top-start" disabled={!filterApplied} color="green" size={12} processing>
+                                <ActionIcon
+                                    h={36}
+                                    w={36}
+                                    mb="xs"
+                                    variant="default"
+                                    color="rgba(0, 0, 0, 1)"
+                                    aria-label="Settings"
+                                    onClick={open}
+                                >
+                                    <IconFilter2Plus stroke={1.5} size={20} />
+                                </ActionIcon>
+                            </Indicator>
+                        </Tooltip>
+                        {filterApplied &&
                             <ActionIcon
-                                h={36} // Match TextInput height (default size)
+                                h={36}
                                 w={36}
                                 mb="xs"
-                                variant="default"
-                                color="rgba(0, 0, 0, 1)"
-                                aria-label="Settings"
-                                onClick={open}
-
+                                variant="outline"
+                                color="rgba(219, 113, 105, 0.8)"
+                                aria-label="Clear Filters"
+                                onClick={handleExternalClear}
                             >
-                                <IconFilter2Plus stroke={1.5} size={20} />
+                                <IconTrash color="red" stroke={1.5} size={20} />
                             </ActionIcon>
-                        </Indicator>
+                        }
 
                         <SearchBar
                             value={searchValue}
@@ -232,15 +281,20 @@ export default function IncidentTable() {
                                     'Lead Safety Group',
                                     'Location Type',
                                     'Name of Manager/PI',
-                                    'Building',
-                                    ...statusColumns.map(([label]) => label), // ✅ Only show display labels
+                                    'Building'
                                 ].map((label, index) => (
                                     <Table.Th
-                                        key={index}
+                                        key={label}
                                         onClick={() => handleSort(index)}
                                         style={{ cursor: 'pointer' }}
                                     >
                                         {label} {sortColumn === index ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                                    </Table.Th>
+                                ))}
+
+                                {statusColumns.map(([label]) => (
+                                    <Table.Th key={label}>
+                                        {label}
                                     </Table.Th>
                                 ))}
                             </Table.Tr>
@@ -342,10 +396,11 @@ export default function IncidentTable() {
                 </ScrollArea>
             </Card>
             <FilterModal
+                ref={filterModalRef}
                 opened={opened}
                 onClose={close}
                 data={data}
-                onApplyFilters={(e) => handleApplyFilters(e)}
+                onApplyFilters={(filtered, summary) => handleApplyFilters(filtered, summary)}
                 setFilterApplied={setFilterApplied}
                 statusColumns={statusColumns}
             />
