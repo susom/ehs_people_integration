@@ -206,7 +206,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                     $hasTime = preg_match('/\d{2}:\d{2}/', $value);
 
                     // Append time if missing
-                    $normalized = $hasTime ? $value : ($value . ' 00:00');
+                    $normalized = !$hasTime ? $value : DateTime::createFromFormat('Y-m-d', $value);
 
                     // Format as UTC in 'Y-m-d H:i'
                     $records[$k]['date_reported'] = $normalized;
