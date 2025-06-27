@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import {
     Modal,
     Button,
@@ -11,9 +11,15 @@ import {
 } from '@mantine/core';
 import { IconX, IconTrash, IconPlus } from '@tabler/icons-react';
 
-export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied, statusColumns}) {
+const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilterApplied, statusColumns}, ref) => {
     const [filters, setFilters] = useState([]);
-
+    useImperativeHandle(ref, () => ({
+        clearFiltersExternally: () => {
+            setFilters([]);
+            onApplyFilters(data, '');
+            setFilterApplied(false);
+        }
+    }));
     // Generate list of unique safety groups for dropdown filter
     const uniqueGroups = Array.from(new Set(data.map(row => row.tri_lead_safety_group))).filter(Boolean);
     const addFilter = () => {
@@ -35,7 +41,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
             if (newFilters.length === 0) {
                 setFilterApplied(false);
-                onApplyFilters(data);
+                onApplyFilters(data, '');
             }
 
             return newFilters;
@@ -44,7 +50,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
     const clearAllFilters = () => {
         setFilters([]);
-        onApplyFilters(data);
+        onApplyFilters(data, '');
         setFilterApplied(false);
     };
 
@@ -76,6 +82,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
      */
     const applyFilters = (tableData, filters) => {
         if (filters.length === 0) return tableData;
+        console.log(filters)
         const rows = tableData.filter((row) => {
             let result = null;
 
@@ -102,8 +109,43 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             return result;
         });
 
-        onApplyFilters(rows);
+        onApplyFilters(rows, getFilterSummary(filters));
         setFilterApplied(true);
+    };
+
+    const getFilterSummary = (filters) => {
+        if (!filters || filters.length === 0) return 'No filters applied.';
+        return filters
+            .map((filter, index) => {
+                const { logic, column, operator, value, valueStart, valueEnd } = filter;
+
+                let condition = '';
+                switch (operator) {
+                    case 'contains':
+                        condition = `contains "${value}"`;
+                        break;
+                    case 'does not contain':
+                        condition = `does not contain "${value}"`;
+                        break;
+                    case 'equals':
+                        condition = `equals "${value}"`;
+                        break;
+                    case 'does not equal':
+                        condition = `does not equal "${value}"`;
+                        break;
+                    case 'between':
+                        condition = `between ${valueStart} and ${valueEnd}`;
+                        break;
+                    default:
+                        condition = `${operator} "${value}"`;
+                }
+
+                // Include logic if not the first item
+                const logicText = index > 0 ? `${logic} ` : '';
+
+                return `${logicText}${column} ${condition}`;
+            })
+            .join('\n');
     };
 
     const evaluate = (itemValue, operator, value, valueStart, valueEnd) => {
@@ -121,7 +163,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             case 'does not contain': {
                 if (val.includes(',')) {
                     const tokens = val.split(',').map((s) => s.trim());
-                    return tokens.some((token) => token.includes(filter));
+                    return !tokens.some((token) => token.includes(filter));
                 } else {
                     return val.includes(filter);
                 }
@@ -197,7 +239,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
         'Incident Type': 'incident_type_concat',
         'Name of Person Involved': 'name_of_person_involved',
         'Date of Incident': 'date_of_incident',
-        'Date Recorded': 'date_recorded',
+        'Date Reported': 'date_reported',
         'Name of Incident Lead': 'tri_lead_name',
         'Lead Safety Group': 'tri_lead_safety_group',
         'Location Type': 'location_type',
@@ -209,12 +251,14 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
     const operatorOptions = (column) => {
 
         const dynamicLabels = statusColumns?.map(([label]) => label) ?? [];
-        if (column === 'Date of Incident') {
+        if (column === 'Date of Incident' || column === 'Date Reported') {
             return ['equals', 'between'];
         } else if (column === 'Lead Safety Group') {
             return ['equals', 'does not equal'];
         } else if (dynamicLabels.includes(column)) {
             return ['equals', 'does not equal'];
+        } else if (column === 'Location Type' || column === 'Incident Type'){
+            return ['contains', 'does not contain'];
         } else {
             return ['contains', 'does not contain', 'equals', 'does not equal'];
         }
@@ -227,8 +271,9 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             opened={opened}
             onClose={onClose}
             title="Filter Logic"
-            size="xl"
-            centered
+            size="80%"
+            // centered
+            yOffset="30vh"
         >
             <Stack spacing="sm">
                 {filters.map((filter, index) => (
@@ -275,12 +320,12 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                         />
 
                         {/* Value Input Section */}
-                        {filter.column === 'Date of Incident' ? (
+                        {['Date of Incident', 'Date Reported'].includes(filter.column) ? (
                             filter.operator === 'between' ? (
                                 <>
                                     <TextInput
                                         type="date"
-                                        max={filter.valueEnd || new Date().toISOString().split('T')[0]} // can't go past End or today
+                                        max={filter.valueEnd} // can't go past End or today
                                         label="Start"
                                         value={filter.valueStart}
                                         onChange={(e) => updateFilter(index, 'valueStart', e.target.value)}
@@ -288,7 +333,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                                     <TextInput
                                         type="date"
                                         min={filter.valueStart || undefined} // disallow dates before start
-                                        max={new Date().toISOString().split('T')[0]} // disallow future dates
                                         label="End"
                                         value={filter.valueEnd}
                                         onChange={(e) => updateFilter(index, 'valueEnd', e.target.value)}
@@ -297,7 +341,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                             ) : (
                                 <TextInput
                                     type="date"
-                                    max={new Date().toISOString().split('T')[0]} // disallow future dates
                                     label="Date"
                                     value={filter.value}
                                     onChange={(e) => updateFilter(index, 'value', e.target.value)}
@@ -319,7 +362,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                                     { label: 'Complete', value: '2' },
                                     { label: 'Unverified', value: '1' },
                                     { label: 'Incomplete', value: '0' },
-                                    { label: 'Empty', value: '' },
                                 ]}
                                 value={filter.value}
                                 onChange={(value) => updateFilter(index, 'value', value)}
@@ -362,4 +404,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             </Group>
         </Modal>
     );
-}
+});
+
+export default FilterModal;
