@@ -118,6 +118,14 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         ];
 
         $res = json_decode(\REDCap::getData($detailsParams), true);
+        foreach($res as $key => $value){
+             if(!empty($value['redcap_repeat_instrument'])){
+                 unset($res[$key]);
+             }
+        }
+
+        //Re-index array after deletions of repeat instruments
+        $res = array_values($res);
         $res = $this->normalizeData($res, $completeFields);
 
         return [
@@ -202,13 +210,15 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
                 }
 
                 if (in_array($key, ["non_timestamp", "emp_timestamp"]) && !empty($value)) {
-                    // Check if the string includes a time component
-                    $hasTime = preg_match('/\d{2}:\d{2}/', $value);
+                    // Check if the string includes a minutes/seconds component, but normalize it
+                    try {
+                        $dt = new DateTime($value);
+                        $normalized = $dt->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        $normalized = null;
+                    }
 
-                    // Append time if missing
-                    $normalized = !$hasTime ? $value : DateTime::createFromFormat('Y-m-d', $value);
-
-                    // Format as UTC in 'Y-m-d H:i'
+                    // Format as UTC in 'Y-m-d'
                     $records[$k]['date_reported'] = $normalized;
                 }
 
