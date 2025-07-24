@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef, useImperativeHandle } from 'react';
 import {
     Modal,
     Button,
@@ -11,9 +11,17 @@ import {
 } from '@mantine/core';
 import { IconX, IconTrash, IconPlus } from '@tabler/icons-react';
 
-export default function FilterModal({ opened, onClose, data, onApplyFilters, setFilterApplied }) {
+const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilterApplied, statusColumns}, ref) => {
     const [filters, setFilters] = useState([]);
-
+    useImperativeHandle(ref, () => ({
+        clearFiltersExternally: () => {
+            setFilters([]);
+            onApplyFilters(data, '');
+            setFilterApplied(false);
+        }
+    }));
+    // Generate list of unique safety groups for dropdown filter
+    const uniqueGroups = Array.from(new Set(data.map(row => row.tri_lead_safety_group))).filter(Boolean);
     const addFilter = () => {
         setFilters((prev) => [
             ...prev,
@@ -33,7 +41,7 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
             if (newFilters.length === 0) {
                 setFilterApplied(false);
-                onApplyFilters(data);
+                onApplyFilters(data, '');
             }
 
             return newFilters;
@@ -42,104 +50,230 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
 
     const clearAllFilters = () => {
         setFilters([]);
-        onApplyFilters(data);
+        onApplyFilters(data, '');
         setFilterApplied(false);
     };
 
+    /**
+     * Safely retrieves the value from a nested object using a dot-separated path string.
+     *
+     * @param {Object} obj - The object to retrieve the value from.
+     * @param {string} path - A string representing the path to the value, using dot notation (e.g., "completed_statuses.Su17 Employee Form").
+     * @returns {*} - The value at the specified path, or undefined if any part of the path is missing.
+     */
+    const getNestedValue = (obj, path) => {
+        if (!obj || typeof path !== 'string') return undefined;
+
+        // If there's no dot, return the direct property
+        if (!path.includes('.')) return obj[path];
+
+        // Traverse the path
+        return path
+            .split('.')
+            .reduce((acc, part) => (acc && acc[part] !== undefined ? acc[part] : undefined), obj);
+    };
+
+    /**
+     * Applies an array of filter objects to a dataset.
+     *
+     * @param {Array<Object>} tableData - The dataset to be filtered.
+     * @param {Array<Object>} filters - An array of filter objects containing column, operator, values, and logic.
+     * @returns {void} - Calls onApplyFilters with the filtered dataset and sets the filterApplied state.
+     */
     const applyFilters = (tableData, filters) => {
         if (filters.length === 0) return tableData;
+        console.log(filters)
+        const rows = tableData.filter((row) => {
+            let result = null;
 
-        let rows = tableData.filter((row) => {
-            let result = evaluate(
-                row[columnKeyMap[filters[0].column]],
-                filters[0].operator,
-                filters[0].value,
-                filters[0].valueStart,
-                filters[0].valueEnd
-            );
-
-            for (let i = 1; i < filters.length; i++) {
+            for (let i = 0 ; i < filters.length; i++) {
                 const { logic, column, operator, value, valueStart, valueEnd } = filters[i];
-                const condition = evaluate(
-                    row[columnKeyMap[column]],
-                    operator,
-                    value,
-                    valueStart,
-                    valueEnd
-                );
 
-                if (logic === 'AND') {
-                    result = result && condition;
+                // Get the field key to use in the row (may be nested like 'completed_statuses.Su17 Employee Form')
+                const key = columnKeyMap[column];
+
+                // Safely access nested value if needed (e.g., row['completed_statuses']['Su17 Employee Form'])
+                const rowValue = getNestedValue(row, key);
+
+                // Evaluate this filter condition against the current row's value
+                const currentEval = evaluate(rowValue, operator, value, valueStart, valueEnd);
+
+                if (i === 0) {
+                    result = currentEval;
+                } else if (logic === 'AND') {
+                    result = result && currentEval;
                 } else if (logic === 'OR') {
-                    result = result || condition;
+                    result = result || currentEval;
                 }
             }
-
             return result;
         });
 
-        onApplyFilters(rows);
+        onApplyFilters(rows, getFilterSummary(filters));
         setFilterApplied(true);
+    };
+
+    const getFilterSummary = (filters) => {
+        if (!filters || filters.length === 0) return 'No filters applied.';
+        return filters
+            .map((filter, index) => {
+                const { logic, column, operator, value, valueStart, valueEnd } = filter;
+
+                let condition = '';
+                switch (operator) {
+                    case 'contains':
+                        condition = `contains "${value}"`;
+                        break;
+                    case 'does not contain':
+                        condition = `does not contain "${value}"`;
+                        break;
+                    case 'equals':
+                        condition = `equals "${value}"`;
+                        break;
+                    case 'does not equal':
+                        condition = `does not equal "${value}"`;
+                        break;
+                    case 'between':
+                        condition = `between ${valueStart} and ${valueEnd}`;
+                        break;
+                    default:
+                        condition = `${operator} "${value}"`;
+                }
+
+                // Include logic if not the first item
+                const logicText = index > 0 ? `${logic} ` : '';
+
+                return `${logicText}${column} ${condition}`;
+            })
+            .join('\n');
     };
 
     const evaluate = (itemValue, operator, value, valueStart, valueEnd) => {
         const val = itemValue?.toString().toLowerCase() ?? '';
         const filter = value?.toString().toLowerCase() ?? '';
-
         switch (operator) {
-            case 'contains':
-                return val.includes(filter);
-            case 'does not contain':
-                return !val.includes(filter);
-            case 'equals':
+            case 'contains': {
+                if (val.includes(',')) {
+                    const tokens = val.split(',').map((s) => s.trim());
+                    return tokens.some((token) => token.includes(filter));
+                } else {
+                    return val.includes(filter);
+                }
+            }
+            case 'does not contain': {
+                if (val.includes(',')) {
+                    const tokens = val.split(',').map((s) => s.trim());
+                    return !tokens.some((token) => token.includes(filter));
+                } else {
+                    return val.includes(filter);
+                }
+            }
+            case 'equals': {
+                const mmddyyyyRegex = /^\d{2}-\d{2}-\d{4}$/;
+                const isDateFormat = mmddyyyyRegex.test(val)
+
+                if (isDateFormat) {
+                    const toISODate = (str) => {
+                        // Convert MM-DD-YYYY to ISO string
+                        const [mm, dd, yyyy] = str.split('-');
+                        return new Date(`${yyyy}-${mm}-${dd}`);
+                    };
+
+                    const dateVal = toISODate(val); //Date will be in MM-DD-YYYY from REDCap UI
+                    const dateFilter = new Date(filter); //Date will be in YYYY-MM-DD from backend
+                    if (!isNaN(dateVal) && !isNaN(dateFilter)) {
+                        return (
+                            dateVal.getFullYear() === dateFilter.getFullYear() &&
+                            dateVal.getMonth() === dateFilter.getMonth() &&
+                            dateVal.getDate() === dateFilter.getDate()
+                        );
+                    }
+                    return false;
+                }
+
                 return val === filter;
+            }
             case 'does not equal':
                 return val !== filter;
             case 'between':
-                const itemDate = new Date(itemValue);
-                const start = new Date(valueStart);
-                const end = new Date(valueEnd);
-                return itemDate >= start && itemDate <= end;
+                const parseDateToUTC = (str) => {
+                    if (!str) return NaN;
+                    const [mm, dd, yyyy] = str.match(/^\d{2}-\d{2}-\d{4}$/) ? str.split('-') : [];
+                    return mm ? Date.UTC(yyyy, mm - 1, dd) : new Date(str).getTime();
+                };
+
+                const item = parseDateToUTC(itemValue);
+                const start = parseDateToUTC(valueStart);
+                const end = parseDateToUTC(valueEnd);
+
+                return !isNaN(item) && !isNaN(start) && !isNaN(end) && item >= start && item <= end;
             default:
                 return true;
         }
     };
 
-    const columnOptions = [
+    const staticColumns = [
         'Incident Number',
         'Incident Type',
         'Name of Person Involved',
         'Date of Incident',
+        'Date Reported',
         'Name of Incident Lead',
         'Lead Safety Group',
-        'Status of Incident',
+        'Location Type',
+        'Name of Manager/PI',
+        'Building'
     ];
 
-    const operatorOptions = (column) => {
-        return column === 'Date of Incident'
-            ? ['equals', 'between']
-            : ['contains', 'does not contain', 'equals', 'does not equal'];
-    };
+    // Extract first elements from each status column entry passed from backend
+    const dynamicStatusColumns = statusColumns?.map(([label]) => label) ?? [];
+    const columnOptions = [...staticColumns, ...dynamicStatusColumns];
 
-    const logicOptions = ['AND', 'OR'];
+    const dynamicColumnKeyMap = statusColumns?.reduce((acc, [label]) => {
+        acc[label] = `completed_statuses.${label}`;
+        return acc;
+    }, {}) ?? {};
 
     const columnKeyMap = {
-        'Incident Number': 'number',
-        'Incident Type': 'type',
-        'Name of Person Involved': 'person',
-        'Date of Incident': 'date',
-        'Name of Incident Lead': 'lead',
-        'Lead Safety Group': 'group',
-        'Status of Incident': 'status',
+        'Incident Number': 'record_id',
+        'Incident Type': 'incident_type_concat',
+        'Name of Person Involved': 'name_of_person_involved',
+        'Date of Incident': 'date_of_incident',
+        'Date Reported': 'date_reported',
+        'Name of Incident Lead': 'tri_lead_name',
+        'Lead Safety Group': 'tri_lead_safety_group',
+        'Location Type': 'location_type',
+        'Name of Manager/PI': 'employee_manager_name',
+        'Building': 'building_location',
+        ...dynamicColumnKeyMap
     };
+
+    const operatorOptions = (column) => {
+
+        const dynamicLabels = statusColumns?.map(([label]) => label) ?? [];
+        if (column === 'Date of Incident' || column === 'Date Reported') {
+            return ['equals', 'between'];
+        } else if (column === 'Lead Safety Group') {
+            return ['equals', 'does not equal'];
+        } else if (dynamicLabels.includes(column)) {
+            return ['equals', 'does not equal'];
+        } else if (column === 'Location Type' || column === 'Incident Type'){
+            return ['contains', 'does not contain'];
+        } else {
+            return ['contains', 'does not contain', 'equals', 'does not equal'];
+        }
+
+    };
+    const logicOptions = ['AND', 'OR'];
 
     return (
         <Modal
             opened={opened}
             onClose={onClose}
             title="Filter Logic"
-            size="xl"
-            centered
+            size="80%"
+            // centered
+            yOffset="30vh"
         >
             <Stack spacing="sm">
                 {filters.map((filter, index) => (
@@ -186,17 +320,19 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                         />
 
                         {/* Value Input Section */}
-                        {filter.column === 'Date of Incident' ? (
+                        {['Date of Incident', 'Date Reported'].includes(filter.column) ? (
                             filter.operator === 'between' ? (
                                 <>
                                     <TextInput
                                         type="date"
+                                        max={filter.valueEnd} // can't go past End or today
                                         label="Start"
                                         value={filter.valueStart}
                                         onChange={(e) => updateFilter(index, 'valueStart', e.target.value)}
                                     />
                                     <TextInput
                                         type="date"
+                                        min={filter.valueStart || undefined} // disallow dates before start
                                         label="End"
                                         value={filter.valueEnd}
                                         onChange={(e) => updateFilter(index, 'valueEnd', e.target.value)}
@@ -210,6 +346,26 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
                                     onChange={(e) => updateFilter(index, 'value', e.target.value)}
                                 />
                             )
+                        ) : filter.column === 'Lead Safety Group' ? (
+                            <Select
+                                label="Value"
+                                placeholder="Select group"
+                                data={uniqueGroups}
+                                value={filter.value}
+                                onChange={(value) => updateFilter(index, 'value', value)}
+                            />
+                        ) : statusColumns.map(([label]) => label).includes(filter.column) ? (
+                            <Select
+                                label="Status"
+                                placeholder="Select status"
+                                data={[
+                                    { label: 'Complete', value: '2' },
+                                    { label: 'Unverified', value: '1' },
+                                    { label: 'Incomplete', value: '0' },
+                                ]}
+                                value={filter.value}
+                                onChange={(value) => updateFilter(index, 'value', value)}
+                            />
                         ) : (
                             <TextInput
                                 label="Value"
@@ -248,4 +404,6 @@ export default function FilterModal({ opened, onClose, data, onApplyFilters, set
             </Group>
         </Modal>
     );
-}
+});
+
+export default FilterModal;

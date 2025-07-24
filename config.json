@@ -31,11 +31,8 @@
     "enable-ajax-logging": false,
 
     "auth-ajax-actions": [
-        "TestAction"
-    ],
-
-    "no-auth-ajax-actions": [
-        "TestAction"
+        "getRecords",
+        "generateExcelFile"
     ],
 
     "links": {
@@ -45,6 +42,18 @@
                 "icon": "fa-solid fa-chart-simple",
                 "url": "pages/dashboard.php",
                 "show-header-and-footer": false
+            },
+            {
+                "name": "Test Page",
+                "icon": "fa-solid fa-chart-simple",
+                "url": "pages/test.php",
+                "show-header-and-footer": false
+            },
+            {
+                "name": "EHS Osha Report",
+                "icon": "fa-solid fa-chart-simple",
+                "url": "pages/osha_report_generator.php",
+                "show-header-and-footer": true
             }
         ],
         "control-center": [
@@ -57,7 +66,20 @@
     ],
 
     "project-settings": [
-
+        {
+            "key": "open-form",
+            "name": "<h6><strong>Open Form</strong></h6><i>Form required to be completed to close a request. Used to determine request completion for the open incident counter on dashboard</i>",
+            "required": true,
+            "repeatable": false,
+            "type": "form-list"
+        },
+        {
+            "key": "status-column",
+            "name": "<h6><strong>Status Column</strong></h6><i>Completion status (complete/unverified/incomplete) of this form will be integrated into the dashboard as a column</i>",
+            "required": false,
+            "repeatable": true,
+            "type": "form-list"
+        }
     ],
 
     "system-settings": [
