@@ -11,6 +11,7 @@ import {
     Select,
     Table,
     Text,
+    LoadingOverlay,
     Tooltip
 } from '@mantine/core';
 import {useDisclosure} from '@mantine/hooks';
@@ -50,6 +51,7 @@ export default function IncidentTable() {
     const [filterApplied, setFilterApplied] = useState(false);
     const [data, setData] = useState([]);
     const [statusColumns, setStatusColumns] = useState([]);
+    const [loading, setLoading] = useState(true)
     // const [data, setData] = useState([
     //     { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
     //     { number: 'INC-002', type: 'Fire Alarm', person: 'Alice Johnson', date: '2025-01-12', lead: 'Robert King', group: 'Fire Safety', status: 'Investigating' },
@@ -72,16 +74,19 @@ export default function IncidentTable() {
 
         if (import.meta?.env?.MODE !== 'development')
             jsmoModule = ExternalModules.Stanford.EHSPeopleIntegration;
+
         jsmoModule.getRecords(
             (res) => {
                 console.log("Success:", res);
                 setData(res?.data)
                 setFilteredData(res?.data)
                 setStatusColumns(res?.columns)
+                setLoading(false)
                 // setState(data) or do something useful
             },
             (err) => {
                 console.error("Failed to load records:", err);
+                setLoading(false)
             }
         );
     }, []);
@@ -261,13 +266,14 @@ export default function IncidentTable() {
                             value={searchValue}
                             onDebouncedChange={(val) => {
                                 setSearchValue(val);
-                                setActivePage(1);
+                                // setActivePage(1);
                             }}
                             delay={300} // optional: adjust debounce time
                         />
                     </Group>
                 </Group>
                 <ScrollArea>
+                    <LoadingOverlay visible={loading} zIndex={1000} overlayProps={{ radius: "sm", blur: 2 }} />
                     <Table striped highlightOnHover withTableBorder>
                         <Table.Thead>
                             <Table.Tr>
@@ -310,7 +316,7 @@ export default function IncidentTable() {
                                 return (
                                     <Table.Tr key={incident?.record_id}>
                                         <Table.Td>
-                                            <a href={buildRedirectUrl(incident?.record_id)}>
+                                            <a href={buildRedirectUrl(incident?.record_id)} target="_blank" rel="noopener noreferrer">
                                                 {incident?.record_id}
                                             </a>
                                         </Table.Td>
@@ -350,7 +356,13 @@ export default function IncidentTable() {
                                                 <Table.Td key={`status-${i}`}>
                                                     <Tooltip label={status.label} withArrow>
                                                         <span
-                                                            onClick={() => { window.location.href = buildRedirectUrl(incident?.record_id, fieldName);}}
+                                                            onClick={() => {
+                                                                const url = buildRedirectUrl(incident?.record_id, fieldName);
+                                                                if (url) {
+                                                                    window.open(url, '_blank', 'noopener,noreferrer');
+                                                                }
+                                                            }}
+
                                                             style={{
                                                                 display: 'inline-block',
                                                                 cursor: 'pointer',
