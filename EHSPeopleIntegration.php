@@ -428,9 +428,21 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 
     public function downloadExcelFile($spreadsheet)
     {
-        // Write to output buffer
-        $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+        try{
+            // Write to output buffer
+            $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
+            $tempFilePath = $this->getTmpFilePath();
+            $writer->save($tempFilePath);
+        }catch (\Exception $e){
+            \REDCap::logEvent('EXCEL generation failed: ', $e->getMessage());
+        }finally{
+            if($tempFilePath){
+                 @unlink(realpath($tempFilePath));
+            }
+        }
+    }
 
-        $writer->save(__DIR__ ."/OSHA_Form_300_Filled.xlsx");
+    private function getTmpFilePath(){
+        return tempnam(sys_get_temp_dir() , 'OSHA_Form_300_Filled', ) . '.xlsx';
     }
 }
