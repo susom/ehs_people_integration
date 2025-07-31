@@ -219,11 +219,11 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
     {
         $records = $this->getDateRangeRecords($payload['start'], $payload['end']);
         $preparedData = $this->prepareOshaRecords($records);
-        $this->insertRecordToExcelFile($preparedData);
+        $signedURL = $this->insertRecordToExcelFile($preparedData);
 
         return [
             "success" => true,
-            'url' => $this->getUrl('OSHA_Form_300_Filled.xlsx'),
+            'url' => $signedURL,
         ];
     }
 
@@ -266,11 +266,14 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 // Start inserting at row 25
         $startRow = 25;
         $caseNum = 1;
+        $offset = 9; // Offset for inserting new rows after every 10 records
         foreach ($preparedData as $index => $row) {
             $rowIndex = $startRow + $index;
 
-            if($index > 9){
-                $sheet->insertNewRowBefore($rowIndex, 1); // Insert 1 new row before the current index
+            if(count($preparedData) > $offset){
+                $insert = count($preparedData) - $offset + 1; // Calculate how many rows to insert
+                $sheet->insertNewRowBefore($rowIndex, $insert); // Insert 1 new row before the current index
+                $offset = count($preparedData) + 1;
             }
 
             // Optional: copy style from previous row (24 in this example)
@@ -367,10 +370,10 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         }
 
         // Save the updated file
-        $data = $this->downloadExcelFile($spreadsheet);
+        $signedURL = $this->downloadExcelFile($spreadsheet);
 
         \REDCap::logEvent( "OSHA Form 300 updated successfully.");
-        return $data;
+        return $signedURL;
     }
 
     public function downloadExcelFile($spreadsheet)
@@ -380,6 +383,28 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
             $tempFilePath = $this->getTmpFilePath();
             $writer->save($tempFilePath);
+
+            // now upload the file to Google Cloud Storage
+            $file_content = fopen($tempFilePath, 'r');
+            $stored_name = 'OSHA_Form_300_Filled.xlsx';
+            $googleClient = \Files::googleCloudStorageClient();
+            $bucket = $googleClient->bucket($GLOBALS['google_cloud_storage_api_bucket_name']);
+
+            // if pid sub-folder is enabled then upload the file under pid folder
+            if($GLOBALS['google_cloud_storage_api_use_project_subfolder']){
+                $stored_name = PROJECT_ID . '/' . $stored_name;
+            }
+
+            $result = $bucket->upload($file_content, array('name' => $stored_name));
+            if($result){
+                // Generate a signed URL that expires in $expiration seconds
+                $signedUrl = $result->signedUrl(new \DateTime('+500 seconds'), [
+                    'method' => 'GET',
+                ]);
+
+                return $signedUrl;
+            }
+
         }catch (\Exception $e){
             \REDCap::logEvent('EXCEL generation failed: ', $e->getMessage());
         }finally{
