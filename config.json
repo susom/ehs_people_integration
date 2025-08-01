@@ -44,12 +44,6 @@
                 "show-header-and-footer": false
             },
             {
-                "name": "Test Page",
-                "icon": "fa-solid fa-chart-simple",
-                "url": "pages/test.php",
-                "show-header-and-footer": false
-            },
-            {
                 "name": "EHS Osha Report",
                 "icon": "fa-solid fa-chart-simple",
                 "url": "pages/osha_report_generator.php",
