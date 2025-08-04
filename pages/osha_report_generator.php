@@ -7,6 +7,11 @@ $module->injectJSMO();
 // Fetch minified react files to inject as page assets
 $files = $module->generateAssetFiles($module::EXCEL_GENERATOR_DIR);
 
+try{
+if(!$module->getProjectSettings('osha-report-bucket')){
+    throw new \Exception("Please set the 'OSHA Report Bucket' in the project settings before using this page.");
+}else{
+
 ?>
 
 <!DOCTYPE html>
@@ -48,3 +53,13 @@ $files = $module->generateAssetFiles($module::EXCEL_GENERATOR_DIR);
 <div id="root"></div>
 </body>
 </html>
+
+<?php
+    } // end if project setting exists
+}catch (\Exception $e){
+    echo '<div>
+            <h1>Error</h1>
+            <div class="alert-danger alert">' . $e->getMessage() . '</div>
+          </div>';
+    \REDCap::logEvent("OSHA Report Generator Error", $e->getMessage(), "", "", $e->getCode());
+}

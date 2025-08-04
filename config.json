@@ -61,6 +61,20 @@
 
     "project-settings": [
         {
+            "key": "osha-report-bucket",
+            "name": "<h6><strong>Google Storage bucket</strong></h6><i>GCP bucket were generated excel file will be uploaded. User <strong>MUST</strong> be part of this Stanford workgroup to be able to download the Excel file <strong>med-research-it:cloud-ops-redcap-ehs-admins</strong></i>",
+            "required": true,
+            "repeatable": false,
+            "type": "text"
+        },
+        {
+            "key": "osha-report-service-account",
+            "name": "<h6><strong>Google Storage Service Account</strong></h6><i>Service account used to authenticate with Google Storage. The service account <strong>MUST</strong> have access to the bucket specified above.</i>",
+            "required": false,
+            "repeatable": false,
+            "type": "textarea"
+        },
+        {
             "key": "open-form",
             "name": "<h6><strong>Open Form</strong></h6><i>Form required to be completed to close a request. Used to determine request completion for the open incident counter on dashboard</i>",
             "required": true,
