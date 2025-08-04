@@ -6,7 +6,7 @@ use DateTime;
 require 'vendor/autoload.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
-
+use Google\Cloud\Storage\StorageClient;
 
 
 
@@ -376,6 +376,9 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
         return $signedURL;
     }
 
+    /**
+     * @throws \DateMalformedStringException
+     */
     public function downloadExcelFile($spreadsheet)
     {
         try{
@@ -387,13 +390,10 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
             // now upload the file to Google Cloud Storage
             $file_content = fopen($tempFilePath, 'r');
             $stored_name = 'OSHA_Form_300_Filled.xlsx';
-            $googleClient = \Files::googleCloudStorageClient();
-            $bucket = $googleClient->bucket($GLOBALS['google_cloud_storage_api_bucket_name']);
+            $googleClient = new StorageClient(['keyFile' => json_decode($this->getProjectSetting('osha-report-service-account'), true)]);
+            $bucket = $googleClient->bucket($this->getProjectSetting('osha-report-bucket'));
 
-            // if pid sub-folder is enabled then upload the file under pid folder
-            if($GLOBALS['google_cloud_storage_api_use_project_subfolder']){
-                $stored_name = PROJECT_ID . '/' . $stored_name;
-            }
+
 
             $result = $bucket->upload($file_content, array('name' => $stored_name));
             if($result){
@@ -407,10 +407,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule {
 
         }catch (\Exception $e){
             \REDCap::logEvent('EXCEL generation failed: ', $e->getMessage());
-        }finally{
-            if($tempFilePath){
-                 @unlink(realpath($tempFilePath));
-            }
+            throw $e;
         }
     }
 
