@@ -3,7 +3,7 @@
 
     "namespace": "Stanford\\EHSPeopleIntegration",
 
-    "description": "TODO",
+    "description": "Custom EM for EH&S team to download OSHA 300 file, and dashboard for reported incidents.",
 
     "documentation": "README.md",
 
