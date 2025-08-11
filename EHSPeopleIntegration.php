@@ -317,9 +317,11 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
         // establishment name
         $sheet->setCellValue("I11", "Stanford University");
         // establishment city
-        $sheet->setCellValue("J12", "Palo Alto");
+        $sheet->setCellValue("J12", "Stanford");
         // establishment state
         $sheet->setCellValue("N12", "California");
+        // current calendar year
+        $sheet->setCellValue("N3", date('Y')); // Current year
 
 // Start inserting at row 25
         $startRow = 25;
