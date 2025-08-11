@@ -5,6 +5,7 @@ import {
     Group,
     Select,
     TextInput,
+    Tooltip,
     ActionIcon,
     Divider,
     Stack,
@@ -113,6 +114,20 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
         setFilterApplied(true);
     };
 
+    const isApplyDisabled = filters.some((filter, idx) => {
+        // List of fields to validate
+        const requiredFields = ['columns', 'operator', 'value', 'logic', 'Date', 'status'];
+
+        // If first row, logic might not be required
+        const skipLogic = idx === 0;
+
+        return requiredFields.some((field) => {
+            if (skipLogic && field === 'logic') return false; // skip first row logic
+            return filter[field] === null || filter[field] === '';
+        });
+    });
+
+
     const getFilterSummary = (filters) => {
         if (!filters || filters.length === 0) return 'No filters applied.';
         return filters
@@ -165,7 +180,7 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                     const tokens = val.split(',').map((s) => s.trim());
                     return !tokens.some((token) => token.includes(filter));
                 } else {
-                    return val.includes(filter);
+                    return !val.includes(filter);
                 }
             }
             case 'equals': {
@@ -306,6 +321,8 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                             onChange={(value) => {
                                 updateFilter(index, 'column', value);
                                 updateFilter(index, 'operator', null);
+                                updateFilter(index, 'value', '');
+
                             }}
                             flex={1}
                         />
@@ -397,9 +414,16 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                 </Group>
 
                 {filters.length > 0 && (
-                    <Button variant="outline" color="green" onClick={() => applyFilters(data, filters)}>
-                        Apply
-                    </Button>
+                    <Tooltip position="bottom" label="At least one or more required fields is empty" withArrow disabled={!isApplyDisabled}>
+                        <Button
+                            disabled={isApplyDisabled}
+                            variant="outline"
+                            color="green"
+                            onClick={() => applyFilters(data, filters)}
+                        >
+                            Apply
+                        </Button>
+                    </Tooltip>
                 )}
             </Group>
         </Modal>
