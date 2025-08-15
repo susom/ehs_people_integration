@@ -5,6 +5,7 @@ use DateTime;
 
 require 'vendor/autoload.php';
 
+use ExternalModules\ExternalModules;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Google\Cloud\Storage\StorageClient;
 
@@ -295,6 +296,21 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             $preparedRecords[] = $temp;
         }
         return $preparedRecords;
+    }
+
+    public function redcap_module_link_check_display($project_id, $link)
+    {
+        if ($this->isSuperUser()) {
+            // superusers can see all pages
+            return $link;
+        }
+
+        $username = ExternalModules::getUsername();
+        if (!empty($project_id) && $username) {
+            return $link;
+        }
+
+        return null;
     }
 
     public function getDateRangeRecords($start, $end)
