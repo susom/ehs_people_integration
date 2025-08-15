@@ -306,7 +306,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
         }
 
         $username = ExternalModules::getUsername();
-        if (!empty($project_id) && $username) {
+        if (!empty($project_id) && $username && $this->PREFIX == $link['prefix']) {
             return $link;
         }
 
