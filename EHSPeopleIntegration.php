@@ -136,7 +136,10 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
         return [
             "success" => true,
             "data" => $res,
-            "columns" => $this->generateStatusColumns($completeFields)
+            "columns" => $this->generateStatusColumns($completeFields),
+            "incident_type_columns" => $this->fetchEnumOptions("non_type"),
+            "location_type_columns" => $this->fetchEnumOptions("non_location_type")
+
         ];
     }
 
@@ -157,6 +160,17 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             $statusList[] = [$label, $formName];
         }
         return $statusList;
+    }
+
+    /**
+     * @return array
+     * Grab all checkbox options for non_type and emp_inc_type checkbox fields (same))
+     */
+    function fetchEnumOptions($field): array
+    {
+        $project = new \Project(PROJECT_ID);
+        $parsed = $this->parseEnumField($project->metadata[$field]['element_enum']);
+        return array_values($parsed);
     }
 
     function normalizeData($records, $completeFields): array
@@ -181,7 +195,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             foreach ($record as $key => $value) {
                 $ids = array_map('trim', explode(',', $value));
 
-                // Map multi-select fields to one column
+                // Map multi-select fields to one column, only one of non_type or emp_inc_type can be true at a time.
                 if ($key === "non_type" || $key === "emp_inc_type") {
                     if (!empty($value)) {
                         $incidentTypeValues = array_map(

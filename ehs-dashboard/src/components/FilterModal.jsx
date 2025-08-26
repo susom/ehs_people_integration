@@ -12,7 +12,7 @@ import {
 } from '@mantine/core';
 import { IconX, IconTrash, IconPlus } from '@tabler/icons-react';
 
-const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilterApplied, statusColumns}, ref) => {
+const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilterApplied, statusColumns, incidentTypeColumns, locationTypeColumns}, ref) => {
     const [filters, setFilters] = useState([]);
     useImperativeHandle(ref, () => ({
         clearFiltersExternally: () => {
@@ -83,7 +83,6 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
      */
     const applyFilters = (tableData, filters) => {
         if (filters.length === 0) return tableData;
-        console.log(filters)
         const rows = tableData.filter((row) => {
             let result = null;
 
@@ -115,16 +114,15 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
     };
 
     const isApplyDisabled = filters.some((filter, idx) => {
-        // List of fields to validate
-        const requiredFields = ['columns', 'operator', 'value', 'logic', 'Date', 'status'];
-
-        // If first row, logic might not be required
+        const requiredFields = ['column', 'operator', 'logic'];
         const skipLogic = idx === 0;
 
         return requiredFields.some((field) => {
-            if (skipLogic && field === 'logic') return false; // skip first row logic
-            return filter[field] === null || filter[field] === '';
-        });
+                if (skipLogic && field === 'logic') return false; // skip first row logic
+                return filter[field] === null || filter[field] === '';
+            }) ||
+            // special case: between operator requires start and end values
+            (filter.operator === 'between' && (!filter.valueStart || !filter.valueEnd));
     });
 
 
@@ -308,7 +306,7 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                                 label="Logic"
                                 data={logicOptions}
                                 value={filter.logic}
-                                onChange={(value) => updateFilter(index, 'logic', value)}
+                                onChange={(value) => updateFilter(index, "logic", value)}
                                 w={90}
                             />
                         )}
@@ -319,10 +317,9 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                             data={columnOptions}
                             value={filter.column}
                             onChange={(value) => {
-                                updateFilter(index, 'column', value);
-                                updateFilter(index, 'operator', null);
-                                updateFilter(index, 'value', '');
-
+                                updateFilter(index, "column", value);
+                                updateFilter(index, "operator", null);
+                                updateFilter(index, "value", "");
                             }}
                             flex={1}
                         />
@@ -332,27 +329,31 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                             placeholder="Select operator"
                             data={operatorOptions(filter.column)}
                             value={filter.operator}
-                            onChange={(value) => updateFilter(index, 'operator', value)}
+                            onChange={(value) => updateFilter(index, "operator", value)}
                             flex={1}
                         />
 
                         {/* Value Input Section */}
-                        {['Date of Incident', 'Date Reported'].includes(filter.column) ? (
-                            filter.operator === 'between' ? (
+                        {["Date of Incident", "Date Reported"].includes(filter.column) ? (
+                            filter.operator === "between" ? (
                                 <>
                                     <TextInput
                                         type="date"
-                                        max={filter.valueEnd} // can't go past End or today
+                                        max={filter.valueEnd}
                                         label="Start"
                                         value={filter.valueStart}
-                                        onChange={(e) => updateFilter(index, 'valueStart', e.target.value)}
+                                        onChange={(e) =>
+                                            updateFilter(index, "valueStart", e.target.value)
+                                        }
                                     />
                                     <TextInput
                                         type="date"
-                                        min={filter.valueStart || undefined} // disallow dates before start
+                                        min={filter.valueStart || undefined}
                                         label="End"
                                         value={filter.valueEnd}
-                                        onChange={(e) => updateFilter(index, 'valueEnd', e.target.value)}
+                                        onChange={(e) =>
+                                            updateFilter(index, "valueEnd", e.target.value)
+                                        }
                                     />
                                 </>
                             ) : (
@@ -360,35 +361,51 @@ const FilterModal = forwardRef(({ opened, onClose, data, onApplyFilters, setFilt
                                     type="date"
                                     label="Date"
                                     value={filter.value}
-                                    onChange={(e) => updateFilter(index, 'value', e.target.value)}
+                                    onChange={(e) => updateFilter(index, "value", e.target.value)}
                                 />
                             )
-                        ) : filter.column === 'Lead Safety Group' ? (
+                        ) : filter.column === "Lead Safety Group" ? (
                             <Select
                                 label="Value"
                                 placeholder="Select group"
                                 data={uniqueGroups}
                                 value={filter.value}
-                                onChange={(value) => updateFilter(index, 'value', value)}
+                                onChange={(value) => updateFilter(index, "value", value)}
+                            />
+                        ) : filter.column === "Incident Type" ? (
+                            <Select
+                                label="Incident Type"
+                                placeholder="Select type"
+                                data={incidentTypeColumns}
+                                value={filter.value}
+                                onChange={(value) => updateFilter(index, "value", value)}
+                            />
+                        ) : filter.column === "Location Type" ? (
+                            <Select
+                                label="Location Type"
+                                placeholder="Select type"
+                                data={locationTypeColumns}
+                                value={filter.value}
+                                onChange={(value) => updateFilter(index, "value", value)}
                             />
                         ) : statusColumns.map(([label]) => label).includes(filter.column) ? (
                             <Select
                                 label="Status"
                                 placeholder="Select status"
                                 data={[
-                                    { label: 'Complete', value: '2' },
-                                    { label: 'Unverified', value: '1' },
-                                    { label: 'Incomplete', value: '0' },
+                                    { label: "Complete", value: "2" },
+                                    { label: "Unverified", value: "1" },
+                                    { label: "Incomplete", value: "0" },
                                 ]}
                                 value={filter.value}
-                                onChange={(value) => updateFilter(index, 'value', value)}
+                                onChange={(value) => updateFilter(index, "value", value)}
                             />
                         ) : (
                             <TextInput
                                 label="Value"
                                 placeholder="Filter value"
                                 value={filter.value}
-                                onChange={(e) => updateFilter(index, 'value', e.target.value)}
+                                onChange={(e) => updateFilter(index, "value", e.target.value)}
                                 flex={1}
                             />
                         )}
