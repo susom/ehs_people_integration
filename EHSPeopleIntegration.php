@@ -8,7 +8,7 @@ require 'vendor/autoload.php';
 use ExternalModules\ExternalModules;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Google\Cloud\Storage\StorageClient;
-
+use UserRights;
 class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
 {
 
@@ -87,6 +87,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
         return $assets;
     }
 
+
     public function redcap_module_ajax($action, $payload, $project_id, $record, $instrument, $event_id, $repeat_instance,
                                        $survey_hash, $response_id, $survey_queue_hash, $page, $page_full, $user_id, $group_id)
     {
@@ -139,7 +140,10 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
         return [
             "success" => true,
             "data" => $res,
-            "columns" => $this->generateStatusColumns($completeFields)
+            "columns" => $this->generateStatusColumns($completeFields),
+            "incident_type_columns" => $this->fetchEnumOptions("non_type"),
+            "location_type_columns" => $this->fetchEnumOptions("non_location_type")
+
         ];
     }
 
@@ -160,6 +164,17 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             $statusList[] = [$label, $formName];
         }
         return $statusList;
+    }
+
+    /**
+     * @return array
+     * Grab all checkbox options for non_type and emp_inc_type checkbox fields (same))
+     */
+    function fetchEnumOptions($field): array
+    {
+        $project = new \Project(PROJECT_ID);
+        $parsed = $this->parseEnumField($project->metadata[$field]['element_enum']);
+        return array_values($parsed);
     }
 
     function normalizeData($records, $completeFields): array
@@ -184,7 +199,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             foreach ($record as $key => $value) {
                 $ids = array_map('trim', explode(',', $value));
 
-                // Map multi-select fields to one column
+                // Map multi-select fields to one column, only one of non_type or emp_inc_type can be true at a time.
                 if ($key === "non_type" || $key === "emp_inc_type") {
                     if (!empty($value)) {
                         $incidentTypeValues = array_map(
@@ -303,13 +318,20 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
 
     public function redcap_module_link_check_display($project_id, $link)
     {
-        if ($this->isSuperUser()) {
-            // superusers can see all pages
-            return $link;
-        }
-
+//        if ($this->isSuperUser()) {
+//            // superusers can see all pages
+//            return $link;
+//        }
         $username = ExternalModules::getUsername();
+        $projectRights = UserRights::getPrivileges($project_id)[$project_id][$username];
+
         if (!empty($project_id) && $username && $this->PREFIX == $link['prefix']) {
+            if($link['name'] === "EHS Osha Report"){ //Only render Osha export page to admins
+                if($projectRights['user_rights'] === "1")
+                    return $link;
+                else
+                    return null;
+            }
             return $link;
         }
 

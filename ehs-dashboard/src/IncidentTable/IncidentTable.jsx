@@ -51,6 +51,8 @@ export default function IncidentTable() {
     const [filterApplied, setFilterApplied] = useState(false);
     const [data, setData] = useState([]);
     const [statusColumns, setStatusColumns] = useState([]);
+    const [incidentTypeColumns, setIncidentTypeColumns] = useState([]);
+    const [locationTypeColumns, setLocationTypeColumns] = useState([]);
     const [loading, setLoading] = useState(true)
     // const [data, setData] = useState([
     //     { number: 'INC-001', type: 'Chemical Spill', person: 'John Doe', date: '2025-01-10', lead: 'Jane Smith', group: 'Lab Safety', status: 'Resolved' },
@@ -81,6 +83,8 @@ export default function IncidentTable() {
                 setData(res?.data)
                 setFilteredData(res?.data)
                 setStatusColumns(res?.columns)
+                setIncidentTypeColumns(res?.incident_type_columns)
+                setLocationTypeColumns(res?.location_type_columns)
                 setLoading(false)
                 // setState(data) or do something useful
             },
@@ -415,6 +419,8 @@ export default function IncidentTable() {
                 onApplyFilters={(filtered, summary) => handleApplyFilters(filtered, summary)}
                 setFilterApplied={setFilterApplied}
                 statusColumns={statusColumns}
+                incidentTypeColumns={incidentTypeColumns}
+                locationTypeColumns={locationTypeColumns}
             />
         </Box>
     );

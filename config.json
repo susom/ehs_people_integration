@@ -45,7 +45,7 @@
             },
             {
                 "name": "EHS Osha Report",
-                "icon": "fa-solid fa-chart-simple",
+                "icon": "fa-solid fa-file-lines",
                 "url": "pages/osha_report_generator.php",
                 "show-header-and-footer": true
             }
