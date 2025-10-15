@@ -17,6 +17,9 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
     const EXCEL_GENERATOR_DIR = 'excel-generator/dist/assets';
 
     const OSHA_DATE_OF_INJURY = 'emp_incident_date';
+
+    const OSHA_RECORDABLE = 'osha_recordable_yn';
+
     const OSHA_FIELDS = [
         'osha_name' => 'osha_hide_name_3',
         'job_title' => 'osha_job_title',
@@ -316,7 +319,7 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
     public function getDateRangeRecords($start, $end)
     {
 
-        $filter = "[" . self::OSHA_DATE_OF_INJURY . "] >='" . date('Y-m-d', strtotime($start)) . "' AND [" . self::OSHA_DATE_OF_INJURY . "] <='" . date('Y-m-d', strtotime($end)) . "'";
+        $filter = "[" . self::OSHA_RECORDABLE . "(1)]=1 AND [" . self::OSHA_DATE_OF_INJURY . "] >='" . date('Y-m-d', strtotime($start)) . "' AND [" . self::OSHA_DATE_OF_INJURY . "] <='" . date('Y-m-d', strtotime($end)) . "'";
         $param = [
             'project_id' => $this->getProjectId(),
             'filterLogic' => $filter,
