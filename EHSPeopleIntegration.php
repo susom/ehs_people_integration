@@ -491,15 +491,29 @@ class EHSPeopleIntegration extends \ExternalModules\AbstractExternalModule
             // now upload the file to Google Cloud Storage
             $file_content = fopen($tempFilePath, 'r');
             $stored_name = 'OSHA_Form_300_Filled.xlsx';
-            $googleClient = new StorageClient(['keyFile' => json_decode($this->getProjectSetting('osha-report-service-account'), true)]);
+
+            // Decode and validate the service account JSON. If this is missing/invalid the
+            // StorageClient silently falls back to Application Default Credentials, which cannot
+            // sign URLs and throws:
+            // "Credentials fetcher does not implement Google\Auth\SignBlobInterface".
+            $serviceAccount = json_decode($this->getProjectSetting('osha-report-service-account'), true);
+            if (!is_array($serviceAccount) || empty($serviceAccount['private_key']) || empty($serviceAccount['client_email'])) {
+                throw new \Exception('The "osha-report-service-account" project setting is empty or not a valid service account JSON (must contain "private_key" and "client_email"). A service account key is required to generate a signed URL.');
+            }
+
+            $googleClient = new StorageClient(['keyFile' => $serviceAccount]);
             $bucket = $googleClient->bucket($this->getProjectSetting('osha-report-bucket'));
 
 
             $result = $bucket->upload($file_content, array('name' => $stored_name));
             if ($result) {
-                // Generate a signed URL that expires in $expiration seconds
+                // Generate a signed URL that expires in $expiration seconds.
+                // Passing the service account explicitly via "keyFile" guarantees local signing
+                // (SignBlobInterface) instead of falling back to ADC.
                 $signedUrl = $result->signedUrl(new \DateTime('+500 seconds'), [
                     'method' => 'GET',
+                    'version' => 'v4',
+                    'keyFile' => $serviceAccount,
                 ]);
 
                 return $signedUrl;

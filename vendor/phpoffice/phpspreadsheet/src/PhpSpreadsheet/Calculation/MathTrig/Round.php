@@ -77,11 +77,13 @@ class Round
             );
         }
 
+        // @codeCoverageIgnoreStart
         if ($number < 0.0) {
             return round($number - 0.5 * 0.1 ** $digits, $digits, PHP_ROUND_HALF_DOWN);
         }
 
         return round($number + 0.5 * 0.1 ** $digits, $digits, PHP_ROUND_HALF_DOWN);
+        // @codeCoverageIgnoreEnd
     }
 
     /**
@@ -117,15 +119,17 @@ class Round
             return round(
                 (float) (string) $number,
                 $digits,
-                RoundingMode::TowardsZero //* @phpstan-ignore-line
+                RoundingMode::TowardsZero
             );
         }
 
+        // @codeCoverageIgnoreStart
         if ($number < 0.0) {
             return round($number + 0.5 * 0.1 ** $digits, $digits, PHP_ROUND_HALF_UP);
         }
 
         return round($number - 0.5 * 0.1 ** $digits, $digits, PHP_ROUND_HALF_UP);
+        // @codeCoverageIgnoreEnd
     }
 
     /**
